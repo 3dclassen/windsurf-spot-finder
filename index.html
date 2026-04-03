@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Windsurf Spot Finder</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--s1:#1a1d27;--s2:#22263a;--s3:#2a2f45;
+  --border:#2e3350;--accent:#4f8ef7;--green:#2ecc8f;
+  --orange:#f7a84f;--red:#f75f5f;--text:#e8eaf0;--muted:#7b82a0;--r:14px;
+}
+html,body{height:100%;font-size:16px;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-serif;
+  max-width:600px;margin:0 auto;display:flex;flex-direction:column;height:100vh}
+
+.hdr{background:var(--s1);border-bottom:1px solid var(--border);
+  padding:.875rem 1.25rem;display:flex;align-items:center;gap:.75rem;flex-shrink:0;z-index:5}
+.hdr-ico{width:34px;height:34px;background:var(--accent);border-radius:9px;
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.hdr-title{font-size:1.05rem;font-weight:700;letter-spacing:-.02em}
+.hdr-title span{color:var(--accent)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:.5rem}
+.sync-btn{padding:.3rem .7rem;background:transparent;border:1px solid var(--border);
+  border-radius:8px;color:var(--muted);font-size:.72rem;cursor:pointer;white-space:nowrap;
+  display:flex;align-items:center;gap:.3rem}
+.sync-btn.ok{border-color:var(--green);color:var(--green)}
+.sync-btn.err{border-color:var(--red);color:var(--red)}
+.sync-btn.loading{border-color:var(--orange);color:var(--orange)}
+
+.steps{display:flex;align-items:center;padding:.625rem 1.25rem;
+  background:var(--s1);border-bottom:1px solid var(--border);flex-shrink:0}
+.step{display:flex;flex-direction:column;align-items:center;gap:2px}
+.snum{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:.7rem;
+  font-weight:700;color:var(--muted);transition:all .2s}
+.snum.act{background:var(--accent);border-color:var(--accent);color:#fff}
+.snum.done{background:var(--green);border-color:var(--green);color:#fff}
+.slbl{font-size:.6rem;color:var(--muted);text-align:center;line-height:1.2;white-space:nowrap}
+.slbl.act{color:var(--text)}
+.sline{flex:1;height:2px;background:var(--border);margin:0 .3rem;margin-bottom:14px;
+  border-radius:1px;transition:background .3s}
+.sline.done{background:var(--green)}
+
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+.panel{display:none;padding:1.25rem;flex-direction:column;gap:1.1rem;
+  animation:fi .2s ease}
+.panel.act{display:flex}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+.lbl{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:.35rem}
+.opt-tag{font-size:.62rem;color:var(--muted);background:var(--s3);
+  border:1px solid var(--border);padding:.1rem .4rem;border-radius:5px;margin-left:.4rem}
+
+.sel-wrap{position:relative}
+.sel-wrap select{width:100%;padding:.8rem 2.5rem .8rem 1rem;background:var(--s2);
+  border:1px solid var(--border);border-radius:var(--r);color:var(--text);
+  font-size:.95rem;appearance:none;-webkit-appearance:none;cursor:pointer}
+.sel-wrap::after{content:'▾';position:absolute;right:1rem;top:50%;
+  transform:translateY(-50%);color:var(--muted);pointer-events:none}
+
+.btn{width:100%;padding:.85rem;border:none;border-radius:var(--r);
+  font-size:.95rem;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.btn:active{opacity:.75}
+.btn-p{background:var(--accent);color:#fff}
+.btn-s{background:var(--s2);color:var(--text);border:1px solid var(--border)}
+.back{display:flex;align-items:center;gap:.4rem;color:var(--muted);font-size:.85rem;
+  background:none;border:none;cursor:pointer;padding:0;margin-bottom:.1rem;
+  -webkit-tap-highlight-color:transparent}
+
+.chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip{padding:.32rem .75rem;border-radius:20px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);font-size:.78rem;cursor:pointer;
+  transition:all .15s;-webkit-tap-highlight-color:transparent}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.chip.on.wg{background:var(--red);border-color:var(--red)}
+.chip.on.wk{background:var(--orange);border-color:var(--orange);color:#1a1d27}
+.chip.on.fw{background:var(--green);border-color:var(--green);color:#1a1d27}
+
+.comp-wrap{display:flex;flex-direction:column;align-items:center;gap:.875rem}
+.comp-outer{position:relative;width:200px;height:200px;cursor:pointer;touch-action:none}
+.comp-bg{width:200px;height:200px;border-radius:50%;background:var(--s2);border:2px solid var(--border)}
+.cl{position:absolute;font-size:.72rem;font-weight:700;color:var(--muted)}
+.cl.N{top:7px;left:50%;transform:translateX(-50%);color:var(--accent)}
+.cl.S{bottom:7px;left:50%;transform:translateX(-50%)}
+.cl.O{right:9px;top:50%;transform:translateY(-50%)}
+.cl.W{left:9px;top:50%;transform:translateY(-50%)}
+.comp-cc{position:absolute;top:50%;left:50%;width:10px;height:10px;
+  background:var(--accent);border-radius:50%;transform:translate(-50%,-50%);z-index:3}
+.comp-svgt,.comp-svga{position:absolute;top:0;left:0;width:100%;height:100%}
+.comp-svga{pointer-events:none}
+
+.deg-big{font-size:2.8rem;font-weight:800;color:var(--accent);letter-spacing:-.04em;line-height:1}
+.dir-big{font-size:.95rem;color:var(--muted);margin-top:.2rem}
+
+.deg-row{display:flex;align-items:center;gap:.75rem;width:100%}
+.deg-row input[type=range]{flex:1;height:6px;accent-color:var(--accent)}
+.deg-num{width:76px;padding:.45rem;background:var(--s2);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-size:.95rem;text-align:center}
+
+.qdirs{display:grid;grid-template-columns:repeat(4,1fr);gap:.35rem}
+.qb{padding:.45rem .2rem;background:var(--s2);border:1px solid var(--border);
+  border-radius:10px;color:var(--muted);font-size:.78rem;font-weight:600;
+  cursor:pointer;text-align:center;line-height:1.4;transition:all .15s;
+  -webkit-tap-highlight-color:transparent}
+.qb.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.sumbar{padding:.75rem 1rem;background:var(--s2);border-radius:var(--r);
+  border:1px solid var(--border);font-size:.8rem;line-height:1.8}
+.sumbar strong{color:var(--text)}
+
+.cards{display:flex;flex-direction:column;gap:.7rem}
+.card{background:var(--s1);border-radius:var(--r);border:1px solid var(--border);overflow:hidden}
+.card.perfect{border-left:4px solid var(--green)}
+.card.secondary{border-left:4px solid var(--orange)}
+.card-top{padding:.8rem 1rem .5rem;display:flex;justify-content:space-between;
+  align-items:flex-start;gap:.5rem}
+.card-name{font-weight:700;font-size:.95rem;line-height:1.2}
+.card-loc{font-size:.7rem;color:var(--muted);margin-top:2px}
+.bdg{padding:.22rem .55rem;border-radius:20px;font-size:.68rem;font-weight:700;white-space:nowrap}
+.bdg-p{background:rgba(46,204,143,.15);color:var(--green);border:1px solid rgba(46,204,143,.3)}
+.bdg-s{background:rgba(247,168,79,.15);color:var(--orange);border:1px solid rgba(247,168,79,.3)}
+.card-body{padding:0 1rem .8rem;display:flex;flex-direction:column;gap:.55rem}
+
+.wdb{background:var(--s2);border-radius:10px;padding:.6rem .8rem;display:flex;align-items:center;gap:.7rem}
+.wdb-mini{position:relative;width:40px;height:40px;flex-shrink:0}
+.wdb-info{flex:1;min-width:0}
+.wdb-main{font-size:.82rem;font-weight:600;color:var(--text);line-height:1.3}
+.wdb-sub{font-size:.68rem;color:var(--muted);margin-top:1px}
+.mbar{height:3px;border-radius:2px;margin-top:.35rem;background:var(--border);overflow:hidden}
+.mbar-f{height:100%;border-radius:2px;transition:width .5s}
+.mbar-f.perfect{background:var(--green)}
+.mbar-f.secondary{background:var(--orange)}
+
+.tags{display:flex;flex-wrap:wrap;gap:.3rem}
+.tag{padding:.18rem .5rem;border-radius:6px;font-size:.7rem;font-weight:600}
+.twg{background:rgba(247,95,95,.15);color:#f09090}
+.twk{background:rgba(247,168,79,.15);color:var(--orange)}
+.tfw{background:rgba(46,204,143,.15);color:var(--green)}
+.ttyp{background:rgba(255,255,255,.07);color:var(--muted)}
+.treg{background:rgba(79,142,247,.1);color:#90b0f0;font-size:.65rem}
+
+.empty{padding:2.5rem 1rem;text-align:center;color:var(--muted)}
+.empty strong{display:block;font-size:1rem;color:var(--text);margin-bottom:.4rem}
+
+/* SHEET SETTINGS PANEL – inline, no fixed/overlay issues */
+.settings-panel{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:1rem}
+.settings-panel h3{font-size:.85rem;font-weight:600;margin-bottom:.75rem;color:var(--text)}
+.si{width:100%;padding:.7rem 1rem;background:var(--s1);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-size:.85rem;margin-bottom:.625rem}
+.si:focus{outline:none;border-color:var(--accent)}
+.sh{font-size:.7rem;color:var(--muted);line-height:1.6;margin-bottom:.75rem}
+.sh code{background:var(--s3);padding:.1rem .3rem;border-radius:4px;font-size:.65rem;word-break:break-all}
+.sstatus{font-size:.75rem;margin-top:.5rem;min-height:1rem;line-height:1.4}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-ico">🏄</div>
+  <div class="hdr-title">Windsurf <span>Spot Finder</span></div>
+  <div class="hdr-right">
+    <button class="sync-btn" id="syncBtn" onclick="goSettings()">⟳ Sync</button>
+  </div>
+</div>
+
+<div class="steps">
+  <div class="step"><div class="snum act" id="sn1">1</div><div class="slbl act" id="sl1">Wo bist du?</div></div>
+  <div class="sline" id="l12"></div>
+  <div class="step"><div class="snum" id="sn2">2</div><div class="slbl" id="sl2">Windrichtung</div></div>
+  <div class="sline" id="l23"></div>
+  <div class="step"><div class="snum" id="sn3">3</div><div class="slbl" id="sl3">Spots</div></div>
+</div>
+
+<div class="scroll" id="scrollArea">
+
+<!-- P1 -->
+<div class="panel act" id="p1">
+  <div>
+    <div class="lbl">Land</div>
+    <div class="sel-wrap">
+      <select id="selLand" onchange="onLand()">
+        <option value="">— wählen —</option>
+      </select>
+    </div>
+  </div>
+  <div id="regionSec" style="display:none">
+    <div class="lbl">Region <span class="opt-tag">optional</span></div>
+    <div class="sel-wrap">
+      <select id="selRegion" onchange="curRegion=this.value">
+        <option value="">— alle Regionen —</option>
+      </select>
+    </div>
+  </div>
+  <div id="discSec" style="display:none">
+    <div class="lbl">Disziplin</div>
+    <div class="chips" id="discChips">
+      <button class="chip on" data-v="all">Alle</button>
+      <button class="chip wg" data-v="Welle gross">Welle gross</button>
+      <button class="chip wk" data-v="Welle klein">Welle klein</button>
+      <button class="chip fw" data-v="Flachwasser">Flachwasser</button>
+    </div>
+  </div>
+  <div id="p1btn" style="display:none">
+    <button class="btn btn-p" onclick="goTo(2)">Weiter → Windrichtung</button>
+  </div>
+</div>
+
+<!-- P2 -->
+<div class="panel" id="p2">
+  <button class="back" onclick="goTo(1)">← zurück</button>
+  <div class="comp-wrap">
+    <div class="comp-outer" id="compEl">
+      <div class="comp-bg"></div>
+      <span class="cl N">N</span><span class="cl S">S</span>
+      <span class="cl O">O</span><span class="cl W">W</span>
+      <svg class="comp-svgt" id="tickSvg" viewBox="0 0 200 200"></svg>
+      <svg class="comp-svga" viewBox="0 0 200 200">
+        <g id="arrowG" transform="translate(100,100) rotate(180)">
+          <polygon points="0,-78 -9,-24 0,-38 9,-24" fill="#4f8ef7"/>
+          <circle cx="0" cy="0" r="5" fill="#4f8ef7"/>
+          <polygon points="0,78 -9,24 0,38 9,24" fill="#7b82a0" opacity=".5"/>
+        </g>
+      </svg>
+      <div class="comp-cc"></div>
+    </div>
+    <div class="deg-big" id="degBig">180°</div>
+    <div class="dir-big" id="dirBig">Süd</div>
+  </div>
+  <div class="deg-row">
+    <input type="range" id="slider" min="0" max="359" value="180" oninput="setDeg(+this.value)">
+    <input type="number" class="deg-num" id="numbox" min="0" max="359" value="180" oninput="setDeg(+this.value)">
+  </div>
+  <div>
+    <div class="lbl">Schnellauswahl</div>
+    <div class="qdirs" id="qdirs">
+      <button class="qb" data-d="0">N<br><small>0°</small></button>
+      <button class="qb" data-d="45">NO<br><small>45°</small></button>
+      <button class="qb" data-d="90">O<br><small>90°</small></button>
+      <button class="qb" data-d="135">SO<br><small>135°</small></button>
+      <button class="qb" data-d="180">S<br><small>180°</small></button>
+      <button class="qb" data-d="225">SW<br><small>225°</small></button>
+      <button class="qb" data-d="270">W<br><small>270°</small></button>
+      <button class="qb" data-d="315">NW<br><small>315°</small></button>
+    </div>
+  </div>
+  <button class="btn btn-p" onclick="goTo(3)">Spots anzeigen →</button>
+</div>
+
+<!-- P3 -->
+<div class="panel" id="p3">
+  <button class="back" onclick="goTo(2)">← zurück</button>
+  <div class="sumbar" id="sumbar"></div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<!-- P4: SETTINGS -->
+<div class="panel" id="p4">
+  <button class="back" onclick="goTo(1)">← zurück</button>
+  <div class="settings-panel">
+    <h3>🔗 Google Sheet Verbindung</h3>
+    <div class="sh">
+      Das Sheet wird beim Start automatisch geladen. Hier kannst du die Sheet-ID ändern oder manuell neu laden.<br><br>
+      URL-Format:<br><code>docs.google.com/spreadsheets/d/<strong>DIESE-ID</strong>/edit</code><br><br>
+      Das Sheet muss <strong>öffentlich (Betrachter)</strong> sein.
+    </div>
+    <input class="si" id="sheetIdInput" type="text" placeholder="Sheet-ID…" value="1Sf07-MhazwYub0KmYvk_YdjGzvkSklJ3XCk0-P6zt0c">
+    <button class="btn btn-p" onclick="loadSheet(true)" style="margin-bottom:.5rem">Sheet laden &amp; speichern</button>
+    <button class="btn btn-s" onclick="resetBuiltin()">Eingebaute Daten nutzen</button>
+    <div class="sstatus" id="sstatus"></div>
+  </div>
+</div>
+
+</div><!-- /scroll -->
+
+<script>
+const BUILTIN = [{"land": "Frankreich", "region": "La Manche", "spot": "Querqueville", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Ost", "neben_name": "Nordost", "haupt_min": 80, "haupt_max": 100, "haupt_center": 90, "neben_min": 35, "neben_max": 55, "neben_center": 45, "lat": 49.672, "lon": -1.706}, {"land": "Frankreich", "region": "La Manche", "spot": "Querqueville", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Ost", "neben_name": "Südost", "haupt_min": 80, "haupt_max": 100, "haupt_center": 90, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 49.672, "lon": -1.706}, {"land": "Frankreich", "region": "La Manche", "spot": "Urqueville-Nacqueville", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Ost", "neben_name": "Nordost", "haupt_min": 80, "haupt_max": 100, "haupt_center": 90, "neben_min": 35, "neben_max": 55, "neben_center": 45, "lat": 49.686, "lon": -1.767}, {"land": "Frankreich", "region": "La Manche", "spot": "Urqueville-Nacqueville", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "Nordwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 49.686, "lon": -1.767}, {"land": "Frankreich", "region": "La Manche", "spot": "Vauville", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nordwest", "neben_name": "-", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 49.617, "lon": -1.834}, {"land": "Frankreich", "region": "La Manche", "spot": "Vauville", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "Südost", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 49.617, "lon": -1.834}, {"land": "Frankreich", "region": "La Manche", "spot": "Vauville", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "Nordwest", "neben_name": "-", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 49.617, "lon": -1.834}, {"land": "Frankreich", "region": "La Manche", "spot": "Biville", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nordwest", "neben_name": "-", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 49.63, "lon": -1.816}, {"land": "Frankreich", "region": "La Manche", "spot": "Biville", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "Südost", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 49.63, "lon": -1.816}, {"land": "Frankreich", "region": "La Manche", "spot": "Siouville", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nord", "neben_name": "Nordwest", "haupt_min": 350, "haupt_max": 10, "haupt_center": 0, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 49.588, "lon": -1.864}, {"land": "Frankreich", "region": "La Manche", "spot": "Siouville", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "Südwest", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 49.588, "lon": -1.864}, {"land": "Frankreich", "region": "La Manche", "spot": "Sciotot", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nordwest", "neben_name": "-", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 49.568, "lon": -1.879}, {"land": "Frankreich", "region": "La Manche", "spot": "Sciotot", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "Südost", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 49.568, "lon": -1.879}, {"land": "Frankreich", "region": "La Manche", "spot": "Le Rozel", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nordwest", "neben_name": "-", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 49.54, "lon": -1.889}, {"land": "Frankreich", "region": "La Manche", "spot": "Le Rozel", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "Südost", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 49.54, "lon": -1.889}, {"land": "Frankreich", "region": "La Manche", "spot": "Hatainville", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nord", "neben_name": "-", "haupt_min": 350, "haupt_max": 10, "haupt_center": 0, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 49.507, "lon": -1.893}, {"land": "Frankreich", "region": "La Manche", "spot": "Hatainville", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "Südost", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 49.507, "lon": -1.893}, {"land": "Frankreich", "region": "La Manche", "spot": "La Vielle Eglise", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "Nordwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 49.46, "lon": -1.833}, {"land": "Frankreich", "region": "La Manche", "spot": "La Vielle Eglise", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "Südwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 49.46, "lon": -1.833}, {"land": "Frankreich", "region": "La Manche", "spot": "La Potière", "typ": "W", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "Nordwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 49.43, "lon": -1.78}, {"land": "Frankreich", "region": "Finistère Nord", "spot": "Le Dossen", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Südwest", "neben_name": "West", "haupt_min": 215, "haupt_max": 235, "haupt_center": 225, "neben_min": 260, "neben_max": 280, "neben_center": 270, "lat": 48.726, "lon": -4.001}, {"land": "Frankreich", "region": "Finistère Nord", "spot": "Le Dossen", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Südwest", "neben_name": "Süd", "haupt_min": 215, "haupt_max": 235, "haupt_center": 225, "neben_min": 170, "neben_max": 190, "neben_center": 180, "lat": 48.726, "lon": -4.001}, {"land": "Frankreich", "region": "Finistère Nord", "spot": "Les Amiets", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nordwest", "neben_name": "Südwest", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 48.689, "lon": -4.041}, {"land": "Frankreich", "region": "Finistère Nord", "spot": "Les Amiets", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nordwest", "neben_name": "West", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": 260, "neben_max": 280, "neben_center": 270, "lat": 48.689, "lon": -4.041}, {"land": "Frankreich", "region": "Finistère Nord", "spot": "Les Amiets", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nordwest", "neben_name": "Nord", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": 350, "neben_max": 10, "neben_center": 0, "lat": 48.689, "lon": -4.041}, {"land": "Frankreich", "region": "Finistère Nord", "spot": "Les Amiets", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nordwest", "neben_name": "Nordost", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": 35, "neben_max": 55, "neben_center": 45, "lat": 48.689, "lon": -4.041}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kerloc´h", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nordost", "neben_name": "-", "haupt_min": 35, "haupt_max": 55, "haupt_center": 45, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 48.21, "lon": -4.39}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kerloc´h", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Südost", "neben_name": "Süd", "haupt_min": 125, "haupt_max": 145, "haupt_center": 135, "neben_min": 170, "neben_max": 190, "neben_center": 180, "lat": 48.21, "lon": -4.39}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kerloc´h", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nord", "neben_name": "Nordost", "haupt_min": 350, "haupt_max": 10, "haupt_center": 0, "neben_min": 35, "neben_max": 55, "neben_center": 45, "lat": 48.21, "lon": -4.39}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kersiguénou", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "-", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 48.185, "lon": -4.43}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kersiguénou", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nordwest", "neben_name": "-", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 48.185, "lon": -4.43}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Le Goulien", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nordost", "neben_name": "-", "haupt_min": 35, "haupt_max": 55, "haupt_center": 45, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 48.105, "lon": -4.49}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Le Goulien", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Südwest", "neben_name": "-", "haupt_min": 215, "haupt_max": 235, "haupt_center": 225, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 48.105, "lon": -4.49}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "La Palue", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nord", "neben_name": "-", "haupt_min": 350, "haupt_max": 10, "haupt_center": 0, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 48.24, "lon": -4.54}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "La Palue", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "Südost", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 48.24, "lon": -4.54}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "La Palue", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nordost", "neben_name": "-", "haupt_min": 35, "haupt_max": 55, "haupt_center": 45, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 48.24, "lon": -4.54}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Plage de L´Aber", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "Süd", "neben_name": "Südost", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 48.02, "lon": -4.55}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Plage de L´Aber", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "Süd", "neben_name": "Südwest", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 48.02, "lon": -4.55}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Plage de L´Aber", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "Nordwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 48.02, "lon": -4.55}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Pentrez", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "West", "neben_name": "Nord", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 350, "neben_max": 10, "neben_center": 0, "lat": 48.267, "lon": -4.368}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Pentrez", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "West", "neben_name": "Nordwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 48.267, "lon": -4.368}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Pentrez", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "West", "neben_name": "West", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 260, "neben_max": 280, "neben_center": 270, "lat": 48.267, "lon": -4.368}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Pentrez", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "West", "neben_name": "Südwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 48.267, "lon": -4.368}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Pentrez", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "West", "neben_name": "Süd", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 170, "neben_max": 190, "neben_center": 180, "lat": 48.267, "lon": -4.368}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Pentrez", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nord", "neben_name": "Nordwest", "haupt_min": 350, "haupt_max": 10, "haupt_center": 0, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 48.267, "lon": -4.368}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Pentrez", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Süd", "neben_name": "Südwest", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 48.267, "lon": -4.368}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kervel", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nord", "neben_name": "Nordwest", "haupt_min": 350, "haupt_max": 10, "haupt_center": 0, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 48.124, "lon": -4.326}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kervel", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Süd", "neben_name": "Südwest", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 48.124, "lon": -4.326}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kervel", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "West", "neben_name": "Nord", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 350, "neben_max": 10, "neben_center": 0, "lat": 48.124, "lon": -4.326}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kervel", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "West", "neben_name": "Nordwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 48.124, "lon": -4.326}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kervel", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "West", "neben_name": "Südwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 48.124, "lon": -4.326}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kervel", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "West", "neben_name": "Süd", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 170, "neben_max": 190, "neben_center": 180, "lat": 48.124, "lon": -4.326}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Bai des Trépassés", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nordost", "neben_name": "-", "haupt_min": 35, "haupt_max": 55, "haupt_center": 45, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 47.985, "lon": -4.73}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Bai des Trépassés", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "Nordwest", "neben_name": "Nord", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": 350, "neben_max": 10, "neben_center": 0, "lat": 47.985, "lon": -4.73}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Bai des Trépassés", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "Nordwest", "neben_name": "West", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": 260, "neben_max": 280, "neben_center": 270, "lat": 47.985, "lon": -4.73}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Saint-Tugen", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Südost", "neben_name": "-", "haupt_min": 125, "haupt_max": 145, "haupt_center": 135, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 47.988, "lon": -4.556}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Saint-Tugen", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nordwest", "neben_name": "West", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": 260, "neben_max": 280, "neben_center": 270, "lat": 47.988, "lon": -4.556}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Île aux vaches", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nordwest", "neben_name": "-", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 47.97, "lon": -4.51}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Île aux vaches", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Südost", "neben_name": "-", "haupt_min": 125, "haupt_max": 145, "haupt_center": 135, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 47.97, "lon": -4.51}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Audierne", "typ": "W", "disziplin": "Flachwasser", "haupt_name": "Südwest", "neben_name": "Südost", "haupt_min": 215, "haupt_max": 235, "haupt_center": 225, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 47.999, "lon": -4.539}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Audierne", "typ": "W", "disziplin": "Flachwasser", "haupt_name": "Südwest", "neben_name": "Süd", "haupt_min": 215, "haupt_max": 235, "haupt_center": 225, "neben_min": 170, "neben_max": 190, "neben_center": 180, "lat": 47.999, "lon": -4.539}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Audierne", "typ": "W", "disziplin": "Flachwasser", "haupt_name": "Südwest", "neben_name": "West", "haupt_min": 215, "haupt_max": 235, "haupt_center": 225, "neben_min": 260, "neben_max": 280, "neben_center": 270, "lat": 47.999, "lon": -4.539}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Audierne", "typ": "W", "disziplin": "Welle klein", "haupt_name": "Südwest", "neben_name": "West", "haupt_min": 215, "haupt_max": 235, "haupt_center": 225, "neben_min": 260, "neben_max": 280, "neben_center": 270, "lat": 47.999, "lon": -4.539}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kersiny", "typ": "W", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "Nordwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 47.945, "lon": -4.47}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Kersiny", "typ": "W", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "Südwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 47.945, "lon": -4.47}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Mesperleuc´h", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nordwest", "neben_name": "-", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 48.05, "lon": -4.42}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Mesperleuc´h", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Südwest", "neben_name": "-", "haupt_min": 215, "haupt_max": 235, "haupt_center": 225, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 48.05, "lon": -4.42}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Penhors", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "Nordwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 47.928, "lon": -4.31}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Penhors", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "Südwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 47.928, "lon": -4.31}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Penhors", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Ost", "neben_name": "Nordost", "haupt_min": 80, "haupt_max": 100, "haupt_center": 90, "neben_min": 35, "neben_max": 55, "neben_center": 45, "lat": 47.928, "lon": -4.31}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Penhors", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Ost", "neben_name": "Südost", "haupt_min": 80, "haupt_max": 100, "haupt_center": 90, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 47.928, "lon": -4.31}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Plage de Tronoen", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nordost", "neben_name": "Nord", "haupt_min": 35, "haupt_max": 55, "haupt_center": 45, "neben_min": 350, "neben_max": 10, "neben_center": 0, "lat": 47.887, "lon": -4.303}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Plage de Tronoen", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Süd", "neben_name": "Südost", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 47.887, "lon": -4.303}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "Plage de Tronoen", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Süd", "neben_name": "Südwest", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 47.887, "lon": -4.303}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "La Torche", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nord", "neben_name": "Nordost", "haupt_min": 350, "haupt_max": 10, "haupt_center": 0, "neben_min": 35, "neben_max": 55, "neben_center": 45, "lat": 47.843, "lon": -4.336}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "La Torche", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nord", "neben_name": "Nordwest", "haupt_min": 350, "haupt_max": 10, "haupt_center": 0, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 47.843, "lon": -4.336}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "La Torche", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "Südost", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 47.843, "lon": -4.336}, {"land": "Frankreich", "region": "Finistère Süd", "spot": "La Torche", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "Südwest", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 47.843, "lon": -4.336}, {"land": "Dänemark", "region": "Thy & Limfjorden", "spot": "Oddesund", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "Nordwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 56.605, "lon": 8.5}, {"land": "Dänemark", "region": "Thy & Limfjorden", "spot": "Oddesund", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "Südwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 56.605, "lon": 8.5}, {"land": "Dänemark", "region": "Thy & Limfjorden", "spot": "Ejsingholm", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "West", "neben_name": "-", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 56.536, "lon": 8.706}, {"land": "Dänemark", "region": "Thy & Limfjorden", "spot": "Agger", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "Südwest", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 56.773, "lon": 8.239}, {"land": "Dänemark", "region": "Thy & Limfjorden", "spot": "Nörre Vorupör", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Südwest", "neben_name": "Nordost", "haupt_min": 215, "haupt_max": 235, "haupt_center": 225, "neben_min": 35, "neben_max": 55, "neben_center": 45, "lat": 57.007, "lon": 8.39}, {"land": "Dänemark", "region": "Thy & Limfjorden", "spot": "Klitmöller", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "West", "neben_name": "Südwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 57.03, "lon": 8.515}, {"land": "Dänemark", "region": "Thy & Limfjorden", "spot": "Hanstholm", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nordwest", "neben_name": "-", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 57.12, "lon": 8.605}, {"land": "Dänemark", "region": "Thy & Limfjorden", "spot": "Hamborg", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nordwest", "neben_name": "-", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 57.095, "lon": 8.645}, {"land": "Dänemark", "region": "Thy & Limfjorden", "spot": "Vigsö (Bunkers)", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nordwest", "neben_name": "-", "haupt_min": 305, "haupt_max": 325, "haupt_center": 315, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 57.1, "lon": 8.67}, {"land": "Dänemark", "region": "Thy & Limfjorden", "spot": "Bulbjerg", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "West", "neben_name": "Nordwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 57.14, "lon": 9.03}, {"land": "Dänemark", "region": "Thy & Limfjorden", "spot": "Bulbjerg", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Nordost", "neben_name": "-", "haupt_min": 35, "haupt_max": 55, "haupt_center": 45, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 57.14, "lon": 9.03}, {"land": "Dänemark", "region": "Der Nordosten", "spot": "Lökken", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Südwest", "neben_name": "-", "haupt_min": 215, "haupt_max": 235, "haupt_center": 225, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 57.368, "lon": 9.714}, {"land": "Dänemark", "region": "Der Nordosten", "spot": "Kjul", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "West", "neben_name": "-", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 57.45, "lon": 9.75}, {"land": "Dänemark", "region": "Der Nordosten", "spot": "Tversted", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "West", "neben_name": "-", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 57.585, "lon": 10.15}, {"land": "Dänemark", "region": "Der Nordosten", "spot": "Skiveren", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "Südwest", "neben_name": "-", "haupt_min": 215, "haupt_max": 235, "haupt_center": 225, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 57.66, "lon": 10.275}, {"land": "Dänemark", "region": "Der Nordosten", "spot": "Höyen", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "West", "neben_name": "Südwest", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 57.58, "lon": 10.048}, {"land": "Dänemark", "region": "Fischer Süd", "spot": "Römö", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Süd", "neben_name": "Südwest", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 55.17, "lon": 8.547}, {"land": "Dänemark", "region": "Fischer Süd", "spot": "Römö", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nord", "neben_name": "Nordwest", "haupt_min": 350, "haupt_max": 10, "haupt_center": 0, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 55.17, "lon": 8.547}, {"land": "Dänemark", "region": "Fischer Süd", "spot": "Blavand", "typ": "W/K", "disziplin": "Welle klein", "haupt_name": "West", "neben_name": "-", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 55.556, "lon": 8.089}, {"land": "Dänemark", "region": "Fischer Süd", "spot": "Blavand", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "Südost", "neben_name": "-", "haupt_min": 125, "haupt_max": 145, "haupt_center": 135, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 55.556, "lon": 8.089}, {"land": "Dänemark", "region": "Fischer Süd", "spot": "Hvide Sande Süd", "typ": "W/K", "disziplin": "Welle gross", "haupt_name": "Nord", "neben_name": "Nordwest", "haupt_min": 350, "haupt_max": 10, "haupt_center": 0, "neben_min": 305, "neben_max": 325, "neben_center": 315, "lat": 55.99, "lon": 8.126}, {"land": "Dänemark", "region": "Fischer Süd", "spot": "Hvide Sande Süd", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "Nord", "neben_name": "Nordost", "haupt_min": 350, "haupt_max": 10, "haupt_center": 0, "neben_min": 35, "neben_max": 55, "neben_center": 45, "lat": 55.99, "lon": 8.126}, {"land": "Dänemark", "region": "Fischer Süd", "spot": "Hvide Sande Süd", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "Ost", "neben_name": "Südost", "haupt_min": 80, "haupt_max": 100, "haupt_center": 90, "neben_min": 125, "neben_max": 145, "neben_center": 135, "lat": 55.99, "lon": 8.126}, {"land": "Dänemark", "region": "Fischer Süd", "spot": "Hvide Sande Süd", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "Süd", "neben_name": "Südwest", "haupt_min": 170, "haupt_max": 190, "haupt_center": 180, "neben_min": 215, "neben_max": 235, "neben_center": 225, "lat": 55.99, "lon": 8.126}, {"land": "Dänemark", "region": "Fischer Süd", "spot": "Hvide Sande Süd", "typ": "W/K", "disziplin": "Flachwasser", "haupt_name": "West", "neben_name": "-", "haupt_min": 260, "haupt_max": 280, "haupt_center": 270, "neben_min": null, "neben_max": null, "neben_center": null, "lat": 55.99, "lon": 8.126}];
+const DEFAULT_SHEET_ID = '1Sf07-MhazwYub0KmYvk_YdjGzvkSklJ3XCk0-P6zt0c';
+
+let DB = [...BUILTIN];
+let curLand='', curRegion='', curDisc='all', curDeg=180;
+const D16=['N','NNO','NO','ONO','O','OSO','SO','SSO','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const d2dir = d => D16[Math.round((((d%360)+360)%360)/22.5)%16];
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function buildStruct() {
+  const s={};
+  DB.forEach(r => {
+    if(!s[r.land]) s[r.land]={};
+    if(!s[r.land][r.region]) s[r.land][r.region]=new Set();
+    s[r.land][r.region].add(r.spot);
+  });
+  return s;
+}
+
+const FLAGS={'Frankreich':'🇫🇷','Dänemark':'🇩🇰','Deutschland':'🇩🇪','Spanien':'🇪🇸',
+  'Portugal':'🇵🇹','Irland':'🇮🇪','UK':'🇬🇧','Niederlande':'🇳🇱','Norwegen':'🇳🇴'};
+
+function initLandDrop() {
+  const struct=buildStruct();
+  const sel=document.getElementById('selLand');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— wählen —</option>'+
+    Object.keys(struct).map(l=>`<option value="${l}">${FLAGS[l]||''} ${l}</option>`).join('');
+  if(cur) sel.value=cur;
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+function goTo(n) {
+  if(n===3) buildResults();
+  [1,2,3,4].forEach(i => {
+    document.getElementById('p'+i).classList.toggle('act', i===n);
+  });
+  [1,2,3].forEach(i => {
+    const sn=document.getElementById('sn'+i);
+    const sl=document.getElementById('sl'+i);
+    if(i<n && n<=3) { sn.className='snum done'; sn.textContent='✓'; }
+    else if(i===n) { sn.className='snum act'; sn.textContent=i; sl.classList.add('act'); }
+    else { sn.className='snum'; sn.textContent=i; sl.classList.remove('act'); }
+  });
+  document.getElementById('l12').classList.toggle('done', n>1 && n<=3);
+  document.getElementById('l23').classList.toggle('done', n>2 && n<=3);
+  document.getElementById('scrollArea').scrollTo({top:0,behavior:'smooth'});
+}
+
+function goSettings() { goTo(4); }
+
+// ── STEP 1 ────────────────────────────────────────────────────────────────────
+function onLand() {
+  curLand=document.getElementById('selLand').value;
+  curRegion='';
+  const show=!!curLand;
+  document.getElementById('regionSec').style.display=show?'block':'none';
+  document.getElementById('discSec').style.display=show?'block':'none';
+  document.getElementById('p1btn').style.display=show?'block':'none';
+  if(!show) return;
+  const struct=buildStruct();
+  const regions=Object.keys(struct[curLand]||{});
+  const rsel=document.getElementById('selRegion');
+  rsel.innerHTML='<option value="">— alle Regionen —</option>'+
+    regions.map(r=>`<option value="${r}">${r}</option>`).join('');
+  rsel.onchange=()=>{ curRegion=rsel.value; };
+}
+
+document.getElementById('discChips').addEventListener('click', e => {
+  const b=e.target.closest('.chip'); if(!b) return;
+  document.querySelectorAll('#discChips .chip').forEach(c=>c.classList.remove('on'));
+  b.classList.add('on'); curDisc=b.dataset.v;
+});
+
+// ── COMPASS ──────────────────────────────────────────────────────────────────
+(function() {
+  const svg=document.getElementById('tickSvg');
+  for(let i=0;i<16;i++) {
+    const a=(i*22.5-90)*Math.PI/180, inn=i%4===0?88:92, out=98;
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1',100+inn*Math.cos(a)); ln.setAttribute('y1',100+inn*Math.sin(a));
+    ln.setAttribute('x2',100+out*Math.cos(a)); ln.setAttribute('y2',100+out*Math.sin(a));
+    ln.setAttribute('stroke',i%4===0?'#4f8ef7':'#2e3350');
+    ln.setAttribute('stroke-width',i%4===0?'2.5':'1.5');
+    svg.appendChild(ln);
+  }
+})();
+
+function setDeg(d) {
+  d=((Math.round(+d)%360)+360)%360; curDeg=d;
+  document.getElementById('arrowG').setAttribute('transform',`translate(100,100) rotate(${d})`);
+  document.getElementById('degBig').textContent=d+'°';
+  document.getElementById('dirBig').textContent=d2dir(d);
+  document.getElementById('slider').value=d;
+  document.getElementById('numbox').value=d;
+  document.querySelectorAll('.qb').forEach(b=>b.classList.toggle('on',+b.dataset.d===d));
+}
+setDeg(180);
+
+document.getElementById('qdirs').addEventListener('click', e => {
+  const b=e.target.closest('.qb'); if(b) setDeg(+b.dataset.d);
+});
+
+let drag=false;
+const cel=document.getElementById('compEl');
+function ang(e) {
+  const r=cel.getBoundingClientRect(), t=e.touches?e.touches[0]:e;
+  return ((Math.atan2(t.clientY-(r.top+r.height/2), t.clientX-(r.left+r.width/2))*180/Math.PI)+90+360)%360;
+}
+cel.addEventListener('mousedown', e=>{drag=true;setDeg(ang(e));});
+window.addEventListener('mousemove', e=>{if(drag)setDeg(ang(e));});
+window.addEventListener('mouseup', ()=>drag=false);
+cel.addEventListener('touchstart', e=>{drag=true;setDeg(ang(e));e.preventDefault();},{passive:false});
+window.addEventListener('touchmove', e=>{if(drag){setDeg(ang(e));e.preventDefault();}},{passive:false});
+window.addEventListener('touchend', ()=>drag=false);
+
+// ── MATCHING ──────────────────────────────────────────────────────────────────
+function inRange(d,mn,mx) {
+  if(mn==null||mx==null) return false;
+  d=((d%360)+360)%360;
+  return mx>=mn ? d>=mn&&d<=mx : d>=mn||d<=mx;
+}
+function pctMatch(d,mn,mx) {
+  if(mn==null||mx==null) return 0;
+  d=((d%360)+360)%360;
+  const ctr=mx>=mn?(mn+mx)/2:((mn+mx+360)/2)%360;
+  let diff=Math.abs(d-ctr); if(diff>180) diff=360-diff;
+  const half=mx>=mn?(mx-mn)/2:((mx+360-mn)/2);
+  return Math.max(0,Math.round((1-diff/half)*100));
+}
+function matchRows(rows,deg) {
+  let best=null;
+  for(const r of rows) {
+    if(inRange(deg,r.haupt_min,r.haupt_max)) {
+      const p=pctMatch(deg,r.haupt_min,r.haupt_max);
+      if(!best||best.type==='secondary'||(best.type==='perfect'&&p>best.pct))
+        best={type:'perfect',row:r,pct:p};
+    } else if(inRange(deg,r.neben_min,r.neben_max)) {
+      const p=pctMatch(deg,r.neben_min,r.neben_max);
+      if(!best) best={type:'secondary',row:r,pct:p};
+    }
+  }
+  return best;
+}
+
+// ── BUILD RESULTS ─────────────────────────────────────────────────────────────
+function buildResults() {
+  let rows=DB.filter(r=>r.land===curLand);
+  if(curRegion) rows=rows.filter(r=>r.region===curRegion);
+  if(curDisc!=='all') rows=rows.filter(r=>r.disziplin===curDisc);
+
+  const spotMap={};
+  rows.forEach(r=>{
+    if(!spotMap[r.spot]) spotMap[r.spot]={spot:r.spot,region:r.region,typ:r.typ,rows:[]};
+    spotMap[r.spot].rows.push(r);
+  });
+
+  const results=[];
+  for(const sp of Object.values(spotMap)) {
+    const m=matchRows(sp.rows,curDeg);
+    if(m) results.push({...sp,match:m});
+  }
+  results.sort((a,b)=>a.match.type!==b.match.type?(a.match.type==='perfect'?-1:1):b.match.pct-a.match.pct);
+
+  const nP=results.filter(r=>r.match.type==='perfect').length;
+  const nS=results.filter(r=>r.match.type==='secondary').length;
+  const rl=curRegion?` · ${curRegion}`:'';
+
+  document.getElementById('sumbar').innerHTML=
+    `<strong>${curLand}${rl}</strong> · Wind <strong>${curDeg}° (${d2dir(curDeg)})</strong><br>`+
+    `<span style="color:var(--green)">✓ ${nP} Perfekt</span> &nbsp; `+
+    `<span style="color:var(--orange)">~ ${nS} Nebenwind</span>`+
+    (curDisc!=='all'?` &nbsp; <span style="color:var(--muted)">[${curDisc}]</span>`:'');
+
+  if(!results.length) {
+    document.getElementById('cards').innerHTML=
+      `<div class="empty"><strong>Keine Spots gefunden</strong>`+
+      `Bei ${curDeg}° (${d2dir(curDeg)}) in ${curLand}${rl} passt kein Spot`+
+      (curDisc!=='all'?' für '+curDisc:'')+'.</div>';
+    return;
+  }
+
+  const dmap={'Welle gross':'twg','Welle klein':'twk','Flachwasser':'tfw'};
+  document.getElementById('cards').innerHTML=results.map(({spot,region,typ,match})=>{
+    const m=match, c=m.row, isP=m.type==='perfect';
+    const dirN=isP?c.haupt_name:c.neben_name;
+    const mn=isP?c.haupt_min:c.neben_min, mx=isP?c.haupt_max:c.neben_max;
+    const ctr=isP?c.haupt_center:c.neben_center;
+    const rangeStr=mn!=null?`${mn}°–${mx}°`:'';
+    const dtag=dmap[c.disziplin]||'';
+    const rad=(ctr-90)*Math.PI/180;
+    const ax1=20-12*Math.cos(rad),ay1=20-12*Math.sin(rad);
+    const ax2=20+14*Math.cos(rad),ay2=20+14*Math.sin(rad);
+    const showReg=!curRegion;
+    return `<div class="card ${m.type}">
+      <div class="card-top">
+        <div>
+          <div class="card-name">${spot}</div>
+          <div class="card-loc">${showReg?region+' · ':''}${c.disziplin}</div>
+        </div>
+        <span class="bdg ${isP?'bdg-p':'bdg-s'}">${isP?'✓ Perfekt':'~ Nebenwind'}</span>
+      </div>
+      <div class="card-body">
+        <div class="wdb">
+          <div class="wdb-mini">
+            <svg viewBox="0 0 40 40" width="40" height="40">
+              <circle cx="20" cy="20" r="18" fill="#22263a" stroke="#2e3350" stroke-width="1.5"/>
+              <text x="20" y="8" text-anchor="middle" fill="#4f8ef7" font-size="5.5" font-weight="bold">N</text>
+              <line x1="${ax1}" y1="${ay1}" x2="${ax2}" y2="${ay2}"
+                stroke="${isP?'#2ecc8f':'#f7a84f'}" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="20" cy="20" r="2.5" fill="${isP?'#2ecc8f':'#f7a84f'}"/>
+            </svg>
+          </div>
+          <div class="wdb-info">
+            <div class="wdb-main">${isP?'Hauptwind':'Nebenwind'} · ${dirN} · <strong>${rangeStr}</strong></div>
+            <div class="wdb-sub">Passt zu ${m.pct}% · dein Wind: ${curDeg}° (${d2dir(curDeg)})</div>
+            <div class="mbar"><div class="mbar-f ${m.type}" style="width:${m.pct}%"></div></div>
+          </div>
+        </div>
+        <div class="tags">
+          <span class="tag ${dtag}">${c.disziplin}</span>
+          ${typ!=='W/K'?`<span class="tag ttyp">${typ}</span>`:''}
+          ${showReg?`<span class="tag treg">${region}</span>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── GOOGLE SHEET ──────────────────────────────────────────────────────────────
+function parseCSV(csv) {
+  const lines=csv.split('\n').filter(Boolean);
+  if(lines.length<2) return [];
+  function parseLine(line) {
+    const parts=[]; let inQ=false, cur='';
+    for(let i=0;i<line.length;i++) {
+      if(line[i]==='"') { inQ=!inQ; }
+      else if(line[i]===','&&!inQ) { parts.push(cur.replace(/^"|"$/g,'').trim()); cur=''; }
+      else cur+=line[i];
+    }
+    parts.push(cur.replace(/^"|"$/g,'').trim());
+    return parts;
+  }
+  const rows=[];
+  for(let i=1;i<lines.length;i++) {
+    const c=parseLine(lines[i]);
+    if(c.length<9) continue;
+    const n=v=>v&&v!==''?+v:null;
+    rows.push({land:c[0],region:c[1],spot:c[2],typ:c[3],disziplin:c[4],
+      haupt_name:c[5],neben_name:c[6]||'-',
+      haupt_min:n(c[7]),haupt_max:n(c[8]),haupt_center:n(c[9]),
+      neben_min:n(c[10]),neben_max:n(c[11]),neben_center:n(c[12]),
+      lat:n(c[13]),lon:n(c[14])});
+  }
+  return rows;
+}
+
+async function loadSheet(manual=false) {
+  const idInput=document.getElementById('sheetIdInput');
+  const id=(idInput?idInput.value.trim():null)||localStorage.getItem('wsf_sheet_id')||DEFAULT_SHEET_ID;
+  if(!id) return;
+
+  const btn=document.getElementById('syncBtn');
+  const st=document.getElementById('sstatus');
+  btn.className='sync-btn loading'; btn.textContent='⟳ Lädt…';
+
+  try {
+    const url=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Sheet1`;
+    const r=await fetch(url);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const csv=await r.text();
+    if(csv.includes('<!DOCTYPE')) throw new Error('Sheet nicht öffentlich oder ID falsch');
+    const rows=parseCSV(csv);
+    if(!rows.length) throw new Error('Keine Zeilen gefunden – Spaltenformat prüfen');
+    DB=rows;
+    localStorage.setItem('wsf_sheet_id', id);
+    initLandDrop();
+    btn.className='sync-btn ok'; btn.textContent='✓ Sync';
+    if(st) st.innerHTML=`<span style="color:var(--green)">✓ ${rows.length} Spots geladen</span>`;
+    if(manual) setTimeout(()=>goTo(1), 800);
+  } catch(e) {
+    DB=[...BUILTIN]; initLandDrop();
+    btn.className='sync-btn err'; btn.textContent='✗ Fehler';
+    if(st) st.innerHTML=`<span style="color:var(--red)">✗ ${e.message}</span>`;
+    console.warn('Sheet load failed:', e.message);
+  }
+  setTimeout(()=>{ btn.className='sync-btn'; btn.textContent='⟳ Sync'; }, 4000);
+}
+
+function resetBuiltin() {
+  DB=[...BUILTIN]; initLandDrop();
+  localStorage.removeItem('wsf_sheet_id');
+  document.getElementById('sstatus').innerHTML=
+    '<span style="color:var(--green)">✓ Eingebaute Daten aktiv</span>';
+}
+
+// Auto-load on start
+initLandDrop();
+loadSheet();
+</script>
+</body>
+</html>
