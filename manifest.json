@@ -1,0 +1,25 @@
+{
+  "name": "Windsurf Spot Finder",
+  "short_name": "Spot Finder",
+  "description": "Finde den besten Windsurf-Spot nach Windrichtung",
+  "start_url": "/windsurf-spot-finder/",
+  "scope": "/windsurf-spot-finder/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1117",
+  "theme_color": "#0f1117",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
