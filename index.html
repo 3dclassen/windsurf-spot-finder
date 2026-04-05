@@ -310,13 +310,12 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-se
   <div class="settings-panel">
     <h3>🔗 Google Sheet Verbindung</h3>
     <div class="sh">
-      Sheet-ID aus der URL:<br>
-      <code>docs.google.com/spreadsheets/d/<strong>DIESE-ID</strong>/edit</code><br><br>
-      Sheet muss öffentlich (Betrachter) sein.
+      Spots werden automatisch aus deinem Google Sheet geladen.<br><br>
+      <strong>Neuen Spot:</strong> Im Sheet eintragen → auf ⟳ Sync tippen → fertig.<br><br>
+      <strong>Offline:</strong> Eingebaute Daten als Fallback wenn kein Netz.
     </div>
-    <input class="si" id="sheetIdInput" type="text" placeholder="Sheet-ID…" value="1Sf07-MhazwYub0KmYvk_YdjGzvkSklJ3XCk0-P6zt0c">
-    <button class="btn btn-p" onclick="loadSheet(true)" style="margin-bottom:.5rem">Sheet laden &amp; speichern</button>
-    <button class="btn btn-s" onclick="resetBuiltin()">Eingebaute Daten nutzen</button>
+    <button class="btn btn-p" onclick="loadSheet(true)" style="margin-bottom:.5rem">⟳ Jetzt neu laden</button>
+    <button class="btn btn-s" onclick="resetBuiltin()">Offline-Daten nutzen</button>
     <div class="sstatus" id="sstatus"></div>
   </div>
 </div>
@@ -742,49 +741,26 @@ function buildResults() {
 }
 
 // ── GOOGLE SHEET ──────────────────────────────────────────────────────────────
-function parseCSV(csv){
-  const lines=csv.split('\n').filter(Boolean);
-  if(lines.length<2)return[];
-  function pl(line){
-    const parts=[];let inQ=false,cur='';
-    for(let i=0;i<line.length;i++){
-      if(line[i]==='"'){inQ=!inQ;}
-      else if(line[i]===','&&!inQ){parts.push(cur.replace(/^"|"$/g,'').trim());cur='';}
-      else cur+=line[i];
-    }
-    parts.push(cur.replace(/^"|"$/g,'').trim());
-    return parts;
-  }
-  const rows=[];
-  for(let i=1;i<lines.length;i++){
-    const c=pl(lines[i]);
-    if(c.length<9)continue;
-    const n=v=>v&&v!==''?+v:null;
-    rows.push({land:c[0],region:c[1],spot:c[2],typ:c[3],disziplin:c[4],
-      haupt_name:c[5],neben_name:c[6]||'-',
-      haupt_min:n(c[7]),haupt_max:n(c[8]),haupt_center:n(c[9]),
-      neben_min:n(c[10]),neben_max:n(c[11]),neben_center:n(c[12]),
-      lat:n(c[13]),lon:n(c[14])});
-  }
-  return rows;
+const API_URL='https://script.google.com/macros/s/AKfycbwBF08cDpiM5b_MCv3c92SAStRdCug-1j7nWYjaKF9HPzlKzuPdT0NQUCfFEC5-oeJY/exec';
+function normalizeRow(r){
+  const n=v=>(v!==''&&v!==null&&v!==undefined)?+v:null;
+  return {land:r.land||'',region:r.region||'',spot:r.spot||'',typ:r.typ||'W/K',
+    disziplin:r.disziplin||'',haupt_name:r.haupt_name||'',neben_name:r.neben_name||'-',
+    haupt_min:n(r.haupt_min),haupt_max:n(r.haupt_max),haupt_center:n(r.haupt_center),
+    neben_min:n(r.neben_min),neben_max:n(r.neben_max),neben_center:n(r.neben_center),
+    lat:n(r.lat),lon:n(r.lon)};
 }
 async function loadSheet(manual=false){
-  const idInput=document.getElementById('sheetIdInput');
-  const id=(idInput?.value.trim())||localStorage.getItem('wsf_sheet_id')||DEFAULT_SHEET_ID;
-  if(!id)return;
   const btn=document.getElementById('syncBtn');
   const st=document.getElementById('sstatus');
   btn.className='sync-btn loading';btn.textContent='⟳';
   try{
-    const url=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Sheet1`;
-    const r=await fetch(url);
+    const r=await fetch(API_URL);
     if(!r.ok)throw new Error('HTTP '+r.status);
-    const csv=await r.text();
-    if(csv.includes('<!DOCTYPE'))throw new Error('Sheet nicht öffentlich');
-    const rows=parseCSV(csv);
-    if(!rows.length)throw new Error('Keine Daten');
-    DB=rows;localStorage.setItem('wsf_sheet_id',id);
-    initLandDrop();
+    const raw=await r.json();
+    if(!Array.isArray(raw)||!raw.length)throw new Error('Keine Daten');
+    const rows=raw.map(normalizeRow).filter(r=>r.land&&r.spot);
+    DB=rows;initLandDrop();
     btn.className='sync-btn ok';btn.textContent='✓ Sync';
     if(st)st.innerHTML=`<span style="color:var(--green)">✓ ${rows.length} Spots</span>`;
     if(manual)setTimeout(()=>goHome(),800);
@@ -792,14 +768,13 @@ async function loadSheet(manual=false){
     DB=[...BUILTIN];initLandDrop();
     btn.className='sync-btn err';btn.textContent='✗';
     if(st)st.innerHTML=`<span style="color:var(--red)">✗ ${e.message}</span>`;
+    console.warn('API:',e.message);
   }
-  setTimeout(()=>{btn.className='sync-btn';btn.textContent='⚙ Sheet';},4000);
+  setTimeout(()=>{btn.className='sync-btn';btn.textContent='⚙ Sheet';},5000);
 }
 function resetBuiltin(){
   DB=[...BUILTIN];initLandDrop();
-  localStorage.removeItem('wsf_sheet_id');
-  document.getElementById('sstatus').innerHTML=
-    '<span style="color:var(--green)">✓ Eingebaute Daten aktiv</span>';
+  document.getElementById('sstatus').innerHTML='<span style="color:var(--green)">✓ Offline-Daten aktiv</span>';
 }
 
 // ── START ─────────────────────────────────────────────────────────────────────
