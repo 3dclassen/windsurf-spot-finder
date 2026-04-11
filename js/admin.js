@@ -11,11 +11,12 @@ const WIND_DIRS = [
 
 // ── State ────────────────────────────────────────────────────────
 
-let currentUser = null;
-let userRole    = 'viewer';
-let editSpotId  = null;
-let windrichtungen = [];  // { mitte, range }[]
+let currentUser    = null;
+let userRole       = 'viewer';
+let editSpotId     = null;
+let windrichtungen = [];
 let selectedWindDeg = null;
+let bilder         = [];
 
 // ── DOM refs ─────────────────────────────────────────────────────
 
@@ -34,6 +35,8 @@ const rangeInput  = document.getElementById('range-input');
 const rangeVal    = document.getElementById('range-val');
 const addWindBtn  = document.getElementById('add-wind-btn');
 const toast       = document.getElementById('toast');
+const bilderList  = document.getElementById('bilder-list');
+const addBildBtn  = document.getElementById('add-bild-btn');
 
 // ── Auth flow ─────────────────────────────────────────────────────
 
@@ -80,6 +83,7 @@ function showScreen(which) {
 
 async function initForm() {
   buildWindDirButtons();
+  buildBilderUI();
 
   editSpotId = new URLSearchParams(location.search).get('id');
   if (editSpotId) {
@@ -119,6 +123,10 @@ function fillForm(spot) {
   // Windrichtungen
   windrichtungen = spot.windrichtungen ? [...spot.windrichtungen] : [];
   renderWindChips();
+
+  // Bilder
+  bilder = spot.bilder ? [...spot.bilder] : [];
+  renderBilderList();
 }
 
 // ── Wind direction picker ─────────────────────────────────────────
@@ -184,6 +192,51 @@ function renderWindChips() {
   });
 }
 
+// ── Foto-URLs ────────────────────────────────────────────────────
+
+function buildBilderUI() {
+  addBildBtn?.addEventListener('click', () => {
+    bilder.push('');
+    renderBilderList();
+    // Fokus auf letztes Input
+    const inputs = bilderList.querySelectorAll('input');
+    inputs[inputs.length - 1]?.focus();
+  });
+}
+
+function renderBilderList() {
+  bilderList.innerHTML = bilder.map((url, i) => `
+    <div style="display:flex;gap:.4rem;align-items:center">
+      <input
+        type="url"
+        class="form-input"
+        style="flex:1"
+        value="${escAttr(url)}"
+        placeholder="https://3dclassen.github.io/windsurf-spot-finder/img/foto.jpg"
+        data-bild-idx="${i}"
+      >
+      <button type="button" class="btn-icon" data-bild-del="${i}" title="Entfernen" style="flex-shrink:0">✕</button>
+    </div>
+  `).join('');
+
+  bilderList.querySelectorAll('input[data-bild-idx]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      bilder[Number(inp.dataset.bildIdx)] = inp.value.trim();
+    });
+  });
+
+  bilderList.querySelectorAll('[data-bild-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      bilder.splice(Number(btn.dataset.bildDel), 1);
+      renderBilderList();
+    });
+  });
+}
+
+function escAttr(s) {
+  return String(s ?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
 // ── Form submit ──────────────────────────────────────────────────
 
 document.getElementById('spot-form')?.addEventListener('submit', async e => {
@@ -221,7 +274,7 @@ document.getElementById('spot-form')?.addEventListener('submit', async e => {
     disziplinen,
     sport,
     windrichtungen,
-    bilder: [],
+    bilder: bilder.filter(u => u.trim() !== ''),
   };
 
   if (!data.name || !data.land || isNaN(data.lat) || isNaN(data.lng)) {

@@ -31,22 +31,28 @@ const CACHE_KEY = 'spots_v2';
 
 // ── State ────────────────────────────────────────────────────────
 
-let allSpots  = [];
-let userLoc   = null;
-let filters   = { wind: null, disziplinen: new Set(), sport: new Set(), text: '' };
+let allSpots     = [];
+let userLoc      = null;
+let filters      = { wind: null, disziplinen: new Set(), sport: new Set(), text: '' };
+let mapView      = false;
+let leafletMap   = null;
+let mapMarkers   = [];
 
 // ── DOM refs ─────────────────────────────────────────────────────
 
-const locBar      = document.getElementById('loc-bar');
-const locText     = document.getElementById('loc-text');
-const resultsList = document.getElementById('results-list');
-const resultCount = document.getElementById('result-count');
-const searchInput = document.getElementById('search-input');
-const searchClear = document.getElementById('search-clear');
-const windGroup   = document.getElementById('wind-group');
-const diszGroup   = document.getElementById('disz-group');
-const sportGroup  = document.getElementById('sport-group');
-const adminLink   = document.getElementById('admin-link');
+const locBar       = document.getElementById('loc-bar');
+const locText      = document.getElementById('loc-text');
+const resultsList  = document.getElementById('results-list');
+const resultCount  = document.getElementById('result-count');
+const resultsWrap  = document.getElementById('results-wrap');
+const mapContainer = document.getElementById('map-container');
+const mapToggle    = document.getElementById('map-toggle');
+const searchInput  = document.getElementById('search-input');
+const searchClear  = document.getElementById('search-clear');
+const windGroup    = document.getElementById('wind-group');
+const diszGroup    = document.getElementById('disz-group');
+const sportGroup   = document.getElementById('sport-group');
+const adminLink    = document.getElementById('admin-link');
 
 // ── Init ─────────────────────────────────────────────────────────
 
@@ -220,6 +226,66 @@ function textMatches(spot) {
   return haystack.includes(filters.text);
 }
 
+// ── Karte ────────────────────────────────────────────────────────
+
+mapToggle.addEventListener('click', () => {
+  mapView = !mapView;
+  mapToggle.classList.toggle('on', mapView);
+  mapToggle.title = mapView ? 'Listenansicht' : 'Kartenansicht';
+  resultsWrap.classList.toggle('hidden', mapView);
+  mapContainer.classList.toggle('hidden', !mapView);
+  if (mapView) {
+    initMap();
+    render();
+  }
+});
+
+function initMap() {
+  if (leafletMap) return;
+  leafletMap = L.map('map-container', { zoomControl: true });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+    maxZoom: 18
+  }).addTo(leafletMap);
+}
+
+function updateMap(spots) {
+  if (!leafletMap) return;
+  mapMarkers.forEach(m => m.remove());
+  mapMarkers = [];
+
+  spots.forEach(spot => {
+    if (!spot.lat || !spot.lng) return;
+    const distText = spot._dist !== null ? `<br><span style="color:#4f8ef7">${formatDistance(spot._dist)}</span>` : '';
+    const marker = L.circleMarker([spot.lat, spot.lng], {
+      radius: 8,
+      fillColor: '#4f8ef7',
+      color: '#1a1d27',
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 0.9
+    }).addTo(leafletMap)
+      .bindPopup(`
+        <div style="font-family:system-ui;min-width:140px">
+          <strong style="font-size:.95rem">${escHtml(spot.name)}</strong>
+          <div style="color:#888;font-size:.8rem;margin:.2rem 0">${escHtml(spot.region ?? spot.land ?? '')}</div>
+          ${distText}
+          <a href="spot.html?id=${spot.id}"
+             style="display:inline-block;margin-top:.5rem;color:#4f8ef7;font-size:.82rem;font-weight:600">
+            Details →
+          </a>
+        </div>
+      `, { className: 'map-popup' });
+    mapMarkers.push(marker);
+  });
+
+  if (mapMarkers.length > 0) {
+    const group = L.featureGroup(mapMarkers);
+    leafletMap.fitBounds(group.getBounds().pad(0.15));
+  }
+  setTimeout(() => leafletMap.invalidateSize(), 50);
+}
+
 // ── Render ───────────────────────────────────────────────────────
 
 function render() {
@@ -235,6 +301,11 @@ function render() {
     .sort((a, b) => (a._dist ?? Infinity) - (b._dist ?? Infinity));
 
   resultCount.textContent = `${filtered.length} Spot${filtered.length !== 1 ? 's' : ''}`;
+
+  if (mapView) {
+    updateMap(filtered);
+    return;
+  }
 
   if (filtered.length === 0) {
     resultsList.innerHTML = `
