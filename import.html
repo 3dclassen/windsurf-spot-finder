@@ -14,13 +14,13 @@
   </header>
 
   <div style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;max-width:560px">
-    <div class="lbl">Einmalig-Tool — Südafrika-Spots aus CSV in Firestore importieren</div>
+    <div class="lbl">Einmalig-Tool — Spots aus alter Version in Firestore importieren</div>
 
     <div id="status" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:1rem;font-size:.85rem;line-height:1.7;font-family:monospace;min-height:120px;color:var(--muted)">
       Bereit. Login erforderlich (Admin-Account).
     </div>
 
-    <div class="row" style="gap:.75rem">
+    <div class="row" style="gap:.75rem;flex-wrap:wrap">
       <button id="login-btn" class="btn btn-google">
         <svg width="16" height="16" viewBox="0 0 48 48">
           <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -30,11 +30,12 @@
         </svg>
         Google Login
       </button>
-      <button id="import-btn" class="btn btn-primary" disabled>Spots importieren</button>
+      <button id="import-za-btn" class="btn btn-primary" disabled>🇿🇦 Südafrika (16 Spots)</button>
+      <button id="import-eu-btn" class="btn btn-primary" disabled>🇫🇷🇩🇰 Frankreich + Dänemark (45 Spots)</button>
     </div>
 
     <div class="text-sm text-muted" style="line-height:1.6">
-      Importiert 18 Spots aus Südafrika. Spots mit gleichem Namen werden zusammengefasst (Windrichtungen gemergt). Bereits vorhandene Spots werden nicht überschrieben — prüfe vorher ob Firestore leer ist.
+      Spots mit gleichem Namen werden zusammengefasst (Windrichtungen gemergt). Bereits vorhandene Spots werden nicht doppelt importiert — du kannst jeden Button nur einmal sinnvoll klicken.
     </div>
   </div>
 
@@ -78,10 +79,10 @@
       return ['windsurf', 'kite'];
     }
 
-    function buildSpots() {
+    function buildSpots(rawData) {
       const map = new Map();
 
-      for (const row of RAW) {
+      for (const row of rawData) {
         const key = `${row.spot}|||${row.land}|||${row.region}`;
         const haupt = { mitte: row.haupt_center, range: Math.round((row.haupt_max - row.haupt_min) / 2) };
         const neben = { mitte: row.neben_center, range: Math.round((row.neben_max - row.neben_min) / 2) };
@@ -128,9 +129,108 @@
 
     // ── UI ───────────────────────────────────────────────────────
 
-    const statusEl  = document.getElementById('status');
-    const importBtn = document.getElementById('import-btn');
-    const loginBtn  = document.getElementById('login-btn');
+    // ── Frankreich + Dänemark Rohdaten ──────────────────────────
+    const RAW_EU = [
+      { land:'Frankreich', region:'La Manche', spot:'Querqueville', typ:'W/K', disziplin:'Welle gross', haupt_min:80, haupt_max:100, haupt_center:90, neben_min:35, neben_max:55, neben_center:45, lat:49.672, lon:-1.706 },
+      { land:'Frankreich', region:'La Manche', spot:'Querqueville', typ:'W/K', disziplin:'Welle gross', haupt_min:80, haupt_max:100, haupt_center:90, neben_min:125, neben_max:145, neben_center:135, lat:49.672, lon:-1.706 },
+      { land:'Frankreich', region:'La Manche', spot:'Urqueville-Nacqueville', typ:'W/K', disziplin:'Welle gross', haupt_min:80, haupt_max:100, haupt_center:90, neben_min:35, neben_max:55, neben_center:45, lat:49.686, lon:-1.767 },
+      { land:'Frankreich', region:'La Manche', spot:'Urqueville-Nacqueville', typ:'W/K', disziplin:'Welle klein', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:305, neben_max:325, neben_center:315, lat:49.686, lon:-1.767 },
+      { land:'Frankreich', region:'La Manche', spot:'Vauville', typ:'W/K', disziplin:'Welle gross', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:null, neben_max:null, neben_center:null, lat:49.617, lon:-1.834 },
+      { land:'Frankreich', region:'La Manche', spot:'Vauville', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:125, neben_max:145, neben_center:135, lat:49.617, lon:-1.834 },
+      { land:'Frankreich', region:'La Manche', spot:'Vauville', typ:'W/K', disziplin:'Flachwasser', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:null, neben_max:null, neben_center:null, lat:49.617, lon:-1.834 },
+      { land:'Frankreich', region:'La Manche', spot:'Biville', typ:'W/K', disziplin:'Welle gross', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:null, neben_max:null, neben_center:null, lat:49.63, lon:-1.816 },
+      { land:'Frankreich', region:'La Manche', spot:'Biville', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:125, neben_max:145, neben_center:135, lat:49.63, lon:-1.816 },
+      { land:'Frankreich', region:'La Manche', spot:'Siouville', typ:'W/K', disziplin:'Welle gross', haupt_min:350, haupt_max:10, haupt_center:0, neben_min:305, neben_max:325, neben_center:315, lat:49.588, lon:-1.864 },
+      { land:'Frankreich', region:'La Manche', spot:'Siouville', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:215, neben_max:235, neben_center:225, lat:49.588, lon:-1.864 },
+      { land:'Frankreich', region:'La Manche', spot:'Sciotot', typ:'W/K', disziplin:'Welle gross', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:null, neben_max:null, neben_center:null, lat:49.568, lon:-1.879 },
+      { land:'Frankreich', region:'La Manche', spot:'Sciotot', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:125, neben_max:145, neben_center:135, lat:49.568, lon:-1.879 },
+      { land:'Frankreich', region:'La Manche', spot:'Le Rozel', typ:'W/K', disziplin:'Welle gross', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:null, neben_max:null, neben_center:null, lat:49.54, lon:-1.889 },
+      { land:'Frankreich', region:'La Manche', spot:'Le Rozel', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:125, neben_max:145, neben_center:135, lat:49.54, lon:-1.889 },
+      { land:'Frankreich', region:'La Manche', spot:'Hatainville', typ:'W/K', disziplin:'Welle gross', haupt_min:350, haupt_max:10, haupt_center:0, neben_min:null, neben_max:null, neben_center:null, lat:49.507, lon:-1.893 },
+      { land:'Frankreich', region:'La Manche', spot:'Hatainville', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:125, neben_max:145, neben_center:135, lat:49.507, lon:-1.893 },
+      { land:'Frankreich', region:'La Manche', spot:'La Vielle Eglise', typ:'W/K', disziplin:'Welle klein', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:305, neben_max:325, neben_center:315, lat:49.46, lon:-1.833 },
+      { land:'Frankreich', region:'La Manche', spot:'La Vielle Eglise', typ:'W/K', disziplin:'Welle klein', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:215, neben_max:235, neben_center:225, lat:49.46, lon:-1.833 },
+      { land:'Frankreich', region:'La Manche', spot:'La Potière', typ:'W', disziplin:'Welle klein', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:305, neben_max:325, neben_center:315, lat:49.43, lon:-1.78 },
+      { land:'Frankreich', region:'Finistère Nord', spot:'Le Dossen', typ:'W/K', disziplin:'Welle klein', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:260, neben_max:280, neben_center:270, lat:48.726, lon:-4.001 },
+      { land:'Frankreich', region:'Finistère Nord', spot:'Le Dossen', typ:'W/K', disziplin:'Welle klein', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:170, neben_max:190, neben_center:180, lat:48.726, lon:-4.001 },
+      { land:'Frankreich', region:'Finistère Nord', spot:'Les Amiets', typ:'W/K', disziplin:'Welle klein', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:215, neben_max:235, neben_center:225, lat:48.689, lon:-4.041 },
+      { land:'Frankreich', region:'Finistère Nord', spot:'Les Amiets', typ:'W/K', disziplin:'Welle klein', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:260, neben_max:280, neben_center:270, lat:48.689, lon:-4.041 },
+      { land:'Frankreich', region:'Finistère Nord', spot:'Les Amiets', typ:'W/K', disziplin:'Welle klein', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:350, neben_max:10, neben_center:0, lat:48.689, lon:-4.041 },
+      { land:'Frankreich', region:'Finistère Nord', spot:'Les Amiets', typ:'W/K', disziplin:'Welle klein', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:35, neben_max:55, neben_center:45, lat:48.689, lon:-4.041 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Kerloc\'h', typ:'W/K', disziplin:'Welle gross', haupt_min:35, haupt_max:55, haupt_center:45, neben_min:null, neben_max:null, neben_center:null, lat:48.21, lon:-4.39 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Kerloc\'h', typ:'W/K', disziplin:'Welle gross', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:170, neben_max:190, neben_center:180, lat:48.21, lon:-4.39 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Kerloc\'h', typ:'W/K', disziplin:'Welle klein', haupt_min:350, haupt_max:10, haupt_center:0, neben_min:35, neben_max:55, neben_center:45, lat:48.21, lon:-4.39 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Kersiguénou', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:null, neben_max:null, neben_center:null, lat:48.185, lon:-4.43 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Kersiguénou', typ:'W/K', disziplin:'Welle klein', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:null, neben_max:null, neben_center:null, lat:48.185, lon:-4.43 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Le Goulien', typ:'W/K', disziplin:'Welle klein', haupt_min:35, haupt_max:55, haupt_center:45, neben_min:null, neben_max:null, neben_center:null, lat:48.105, lon:-4.49 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Le Goulien', typ:'W/K', disziplin:'Welle gross', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:null, neben_max:null, neben_center:null, lat:48.105, lon:-4.49 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'La Palue', typ:'W/K', disziplin:'Welle gross', haupt_min:350, haupt_max:10, haupt_center:0, neben_min:null, neben_max:null, neben_center:null, lat:48.24, lon:-4.54 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'La Palue', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:125, neben_max:145, neben_center:135, lat:48.24, lon:-4.54 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'La Palue', typ:'W/K', disziplin:'Welle klein', haupt_min:35, haupt_max:55, haupt_center:45, neben_min:null, neben_max:null, neben_center:null, lat:48.24, lon:-4.54 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Plage de L\'Aber', typ:'W/K', disziplin:'Flachwasser', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:125, neben_max:145, neben_center:135, lat:48.02, lon:-4.55 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Plage de L\'Aber', typ:'W/K', disziplin:'Flachwasser', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:215, neben_max:235, neben_center:225, lat:48.02, lon:-4.55 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Plage de L\'Aber', typ:'W/K', disziplin:'Welle klein', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:305, neben_max:325, neben_center:315, lat:48.02, lon:-4.55 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Pentrez', typ:'W/K', disziplin:'Flachwasser', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:350, neben_max:10, neben_center:0, lat:48.267, lon:-4.368 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Pentrez', typ:'W/K', disziplin:'Flachwasser', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:305, neben_max:325, neben_center:315, lat:48.267, lon:-4.368 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Pentrez', typ:'W/K', disziplin:'Welle klein', haupt_min:350, haupt_max:10, haupt_center:0, neben_min:305, neben_max:325, neben_center:315, lat:48.267, lon:-4.368 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Pentrez', typ:'W/K', disziplin:'Welle klein', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:215, neben_max:235, neben_center:225, lat:48.267, lon:-4.368 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Kervel', typ:'W/K', disziplin:'Welle klein', haupt_min:350, haupt_max:10, haupt_center:0, neben_min:305, neben_max:325, neben_center:315, lat:48.124, lon:-4.326 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Kervel', typ:'W/K', disziplin:'Welle klein', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:215, neben_max:235, neben_center:225, lat:48.124, lon:-4.326 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Kervel', typ:'W/K', disziplin:'Flachwasser', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:305, neben_max:325, neben_center:315, lat:48.124, lon:-4.326 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Kervel', typ:'W/K', disziplin:'Flachwasser', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:215, neben_max:235, neben_center:225, lat:48.124, lon:-4.326 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Bai des Trépassés', typ:'W/K', disziplin:'Welle gross', haupt_min:35, haupt_max:55, haupt_center:45, neben_min:null, neben_max:null, neben_center:null, lat:47.985, lon:-4.73 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Bai des Trépassés', typ:'W/K', disziplin:'Flachwasser', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:350, neben_max:10, neben_center:0, lat:47.985, lon:-4.73 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Bai des Trépassés', typ:'W/K', disziplin:'Flachwasser', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:260, neben_max:280, neben_center:270, lat:47.985, lon:-4.73 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Saint-Tugen', typ:'W/K', disziplin:'Welle klein', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:null, neben_max:null, neben_center:null, lat:47.988, lon:-4.556 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Saint-Tugen', typ:'W/K', disziplin:'Welle gross', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:260, neben_max:280, neben_center:270, lat:47.988, lon:-4.556 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Île aux vaches', typ:'W/K', disziplin:'Welle gross', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:null, neben_max:null, neben_center:null, lat:47.97, lon:-4.51 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Île aux vaches', typ:'W/K', disziplin:'Welle klein', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:null, neben_max:null, neben_center:null, lat:47.97, lon:-4.51 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Audierne', typ:'W', disziplin:'Flachwasser', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:125, neben_max:145, neben_center:135, lat:47.999, lon:-4.539 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Audierne', typ:'W', disziplin:'Flachwasser', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:260, neben_max:280, neben_center:270, lat:47.999, lon:-4.539 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Audierne', typ:'W', disziplin:'Welle klein', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:260, neben_max:280, neben_center:270, lat:47.999, lon:-4.539 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Kersiny', typ:'W', disziplin:'Welle klein', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:305, neben_max:325, neben_center:315, lat:47.945, lon:-4.47 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Kersiny', typ:'W', disziplin:'Welle klein', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:215, neben_max:235, neben_center:225, lat:47.945, lon:-4.47 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Mesperleuc\'h', typ:'W/K', disziplin:'Welle klein', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:null, neben_max:null, neben_center:null, lat:48.05, lon:-4.42 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Mesperleuc\'h', typ:'W/K', disziplin:'Welle klein', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:null, neben_max:null, neben_center:null, lat:48.05, lon:-4.42 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Penhors', typ:'W/K', disziplin:'Welle klein', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:305, neben_max:325, neben_center:315, lat:47.928, lon:-4.31 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Penhors', typ:'W/K', disziplin:'Welle klein', haupt_min:80, haupt_max:100, haupt_center:90, neben_min:125, neben_max:145, neben_center:135, lat:47.928, lon:-4.31 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Plage de Tronoen', typ:'W/K', disziplin:'Welle klein', haupt_min:35, haupt_max:55, haupt_center:45, neben_min:350, neben_max:10, neben_center:0, lat:47.887, lon:-4.303 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'Plage de Tronoen', typ:'W/K', disziplin:'Welle klein', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:215, neben_max:235, neben_center:225, lat:47.887, lon:-4.303 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'La Torche', typ:'W/K', disziplin:'Welle gross', haupt_min:350, haupt_max:10, haupt_center:0, neben_min:35, neben_max:55, neben_center:45, lat:47.843, lon:-4.336 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'La Torche', typ:'W/K', disziplin:'Welle gross', haupt_min:350, haupt_max:10, haupt_center:0, neben_min:305, neben_max:325, neben_center:315, lat:47.843, lon:-4.336 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'La Torche', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:125, neben_max:145, neben_center:135, lat:47.843, lon:-4.336 },
+      { land:'Frankreich', region:'Finistère Süd', spot:'La Torche', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:215, neben_max:235, neben_center:225, lat:47.843, lon:-4.336 },
+      { land:'Dänemark', region:'Thy & Limfjorden', spot:'Oddesund', typ:'W/K', disziplin:'Welle klein', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:305, neben_max:325, neben_center:315, lat:56.605, lon:8.5 },
+      { land:'Dänemark', region:'Thy & Limfjorden', spot:'Oddesund', typ:'W/K', disziplin:'Welle klein', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:215, neben_max:235, neben_center:225, lat:56.605, lon:8.5 },
+      { land:'Dänemark', region:'Thy & Limfjorden', spot:'Ejsingholm', typ:'W/K', disziplin:'Flachwasser', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:null, neben_max:null, neben_center:null, lat:56.536, lon:8.706 },
+      { land:'Dänemark', region:'Thy & Limfjorden', spot:'Agger', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:215, neben_max:235, neben_center:225, lat:56.773, lon:8.239 },
+      { land:'Dänemark', region:'Thy & Limfjorden', spot:'Nörre Vorupör', typ:'W/K', disziplin:'Welle gross', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:35, neben_max:55, neben_center:45, lat:57.007, lon:8.39 },
+      { land:'Dänemark', region:'Thy & Limfjorden', spot:'Klitmöller', typ:'W/K', disziplin:'Welle gross', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:215, neben_max:235, neben_center:225, lat:57.03, lon:8.515 },
+      { land:'Dänemark', region:'Thy & Limfjorden', spot:'Hanstholm', typ:'W/K', disziplin:'Welle gross', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:null, neben_max:null, neben_center:null, lat:57.12, lon:8.605 },
+      { land:'Dänemark', region:'Thy & Limfjorden', spot:'Hamborg', typ:'W/K', disziplin:'Welle gross', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:null, neben_max:null, neben_center:null, lat:57.095, lon:8.645 },
+      { land:'Dänemark', region:'Thy & Limfjorden', spot:'Vigsö (Bunkers)', typ:'W/K', disziplin:'Welle gross', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:null, neben_max:null, neben_center:null, lat:57.1, lon:8.67 },
+      { land:'Dänemark', region:'Thy & Limfjorden', spot:'Bulbjerg', typ:'W/K', disziplin:'Welle gross', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:305, neben_max:325, neben_center:315, lat:57.14, lon:9.03 },
+      { land:'Dänemark', region:'Thy & Limfjorden', spot:'Bulbjerg', typ:'W/K', disziplin:'Welle klein', haupt_min:35, haupt_max:55, haupt_center:45, neben_min:null, neben_max:null, neben_center:null, lat:57.14, lon:9.03 },
+      { land:'Dänemark', region:'Der Nordosten', spot:'Lökken', typ:'W/K', disziplin:'Welle gross', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:null, neben_max:null, neben_center:null, lat:57.368, lon:9.714 },
+      { land:'Dänemark', region:'Der Nordosten', spot:'Kjul', typ:'W/K', disziplin:'Welle gross', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:null, neben_max:null, neben_center:null, lat:57.45, lon:9.75 },
+      { land:'Dänemark', region:'Der Nordosten', spot:'Tversted', typ:'W/K', disziplin:'Welle gross', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:null, neben_max:null, neben_center:null, lat:57.585, lon:10.15 },
+      { land:'Dänemark', region:'Der Nordosten', spot:'Skiveren', typ:'W/K', disziplin:'Welle klein', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:null, neben_max:null, neben_center:null, lat:57.66, lon:10.275 },
+      { land:'Dänemark', region:'Der Nordosten', spot:'Höyen', typ:'W/K', disziplin:'Welle gross', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:215, neben_max:235, neben_center:225, lat:57.58, lon:10.048 },
+      { land:'Dänemark', region:'Fischer Süd', spot:'Römö', typ:'W/K', disziplin:'Welle gross', haupt_min:170, haupt_max:190, haupt_center:180, neben_min:215, neben_max:235, neben_center:225, lat:55.17, lon:8.547 },
+      { land:'Dänemark', region:'Fischer Süd', spot:'Römö', typ:'W/K', disziplin:'Welle gross', haupt_min:350, haupt_max:10, haupt_center:0, neben_min:305, neben_max:325, neben_center:315, lat:55.17, lon:8.547 },
+      { land:'Dänemark', region:'Fischer Süd', spot:'Blavand', typ:'W/K', disziplin:'Welle klein', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:null, neben_max:null, neben_center:null, lat:55.556, lon:8.089 },
+      { land:'Dänemark', region:'Fischer Süd', spot:'Blavand', typ:'W/K', disziplin:'Flachwasser', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:null, neben_max:null, neben_center:null, lat:55.556, lon:8.089 },
+      { land:'Dänemark', region:'Fischer Süd', spot:'Hvide Sande Süd', typ:'W/K', disziplin:'Welle gross', haupt_min:350, haupt_max:10, haupt_center:0, neben_min:305, neben_max:325, neben_center:315, lat:55.99, lon:8.126 },
+      { land:'Dänemark', region:'Fischer Süd', spot:'Hvide Sande Süd', typ:'W/K', disziplin:'Flachwasser', haupt_min:350, haupt_max:10, haupt_center:0, neben_min:35, neben_max:55, neben_center:45, lat:55.99, lon:8.126 },
+      { land:'Dänemark', region:'Fischer Süd', spot:'Hvide Sande Süd', typ:'W/K', disziplin:'Flachwasser', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:null, neben_max:null, neben_center:null, lat:55.99, lon:8.126 },
+    ];
+
+    // ── UI ───────────────────────────────────────────────────────
+
+    const statusEl    = document.getElementById('status');
+    const importZaBtn = document.getElementById('import-za-btn');
+    const importEuBtn = document.getElementById('import-eu-btn');
+    const loginBtn    = document.getElementById('login-btn');
 
     function log(msg) {
       statusEl.style.color = 'var(--text)';
@@ -146,8 +246,9 @@
         log(`✓ Eingeloggt als: ${user.displayName ?? user.email}`);
         log(`  Rolle: ${role}`);
         if (role === 'admin' || role === 'editor') {
-          importBtn.disabled = false;
-          log('  → Import-Button aktiv');
+          importZaBtn.disabled = false;
+          importEuBtn.disabled = false;
+          log('  → Import-Buttons aktiv');
         } else {
           log('  ⚠ Keine Schreibrechte — Import gesperrt');
         }
@@ -160,13 +261,10 @@
       catch (e) { log('✗ Login fehlgeschlagen: ' + e.message); }
     });
 
-    importBtn.addEventListener('click', async () => {
-      if (!currentUser) return;
-      importBtn.disabled = true;
+    async function runImport(rawData, label) {
       statusEl.textContent = '';
-
-      const spots = buildSpots();
-      log(`Import startet — ${spots.length} Spots vorbereitet\n`);
+      const spots = buildSpots(rawData);
+      log(`Import ${label} — ${spots.length} Spots vorbereitet\n`);
 
       let ok = 0, fail = 0;
       for (const spot of spots) {
@@ -183,9 +281,20 @@
           fail++;
         }
       }
-
       log(`\nFertig: ${ok} importiert, ${fail} Fehler`);
-      if (ok > 0) log('→ Jetzt index.html öffnen und testen!');
+      if (ok > 0) log('→ index.html öffnen und testen!');
+    }
+
+    importZaBtn.addEventListener('click', async () => {
+      if (!currentUser) return;
+      importZaBtn.disabled = true;
+      await runImport(RAW, 'Südafrika');
+    });
+
+    importEuBtn.addEventListener('click', async () => {
+      if (!currentUser) return;
+      importEuBtn.disabled = true;
+      await runImport(RAW_EU, 'Frankreich + Dänemark');
     });
   </script>
 </body>
