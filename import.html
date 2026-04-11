@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>CSV Import — Windsurf Spot Finder</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="hdr">
+    <a href="index.html" class="btn-icon">←</a>
+    <div class="hdr-title">CSV <span>Import</span></div>
+  </header>
+
+  <div style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;max-width:560px">
+    <div class="lbl">Einmalig-Tool — Südafrika-Spots aus CSV in Firestore importieren</div>
+
+    <div id="status" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:1rem;font-size:.85rem;line-height:1.7;font-family:monospace;min-height:120px;color:var(--muted)">
+      Bereit. Login erforderlich (Admin-Account).
+    </div>
+
+    <div class="row" style="gap:.75rem">
+      <button id="login-btn" class="btn btn-google">
+        <svg width="16" height="16" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.29-8.16 2.29-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        Google Login
+      </button>
+      <button id="import-btn" class="btn btn-primary" disabled>Spots importieren</button>
+    </div>
+
+    <div class="text-sm text-muted" style="line-height:1.6">
+      Importiert 18 Spots aus Südafrika. Spots mit gleichem Namen werden zusammengefasst (Windrichtungen gemergt). Bereits vorhandene Spots werden nicht überschrieben — prüfe vorher ob Firestore leer ist.
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, onAuthStateChanged, loginWithGoogle, getUserRole, db } from './js/firebase.js';
+    import { collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+    // ── CSV Rohdaten ─────────────────────────────────────────────
+    // land,region,spot,typ,disziplin,haupt_name,neben_name,haupt_min,haupt_max,haupt_center,neben_min,neben_max,neben_center,lat,lon
+    const RAW = [
+      { land:'Südafrika', region:'Westcoast Cape Town',  spot:'Milnerton Lighthouse',    typ:'W/K', disziplin:'Welle gross', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:147, neben_max:167, neben_center:157, lat:-33.8816, lon:18.4872 },
+      { land:'Südafrika', region:'Westcoast Cape Town',  spot:'Sunset Beach',             typ:'W/K', disziplin:'Welle gross', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:147, neben_max:167, neben_center:157, lat:-33.8543, lon:18.4893 },
+      { land:'Südafrika', region:'Westcoast Cape Town',  spot:'Rietvlei Lake',            typ:'W/K', disziplin:'Flachwasser', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:170, neben_max:190, neben_center:180, lat:-33.8362, lon:18.4934 },
+      { land:'Südafrika', region:'Westcoast Cape Town',  spot:'Big Bay',                  typ:'W/K', disziplin:'Welle klein', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:147, neben_max:167, neben_center:157, lat:-33.7947, lon:18.4836 },
+      { land:'Südafrika', region:'Westcoast Cape Town',  spot:'Haakgat',                  typ:'W/K', disziplin:'Welle gross', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:147, neben_max:167, neben_center:157, lat:-33.775,  lon:18.478  },
+      { land:'Südafrika', region:'Westcoast Cape Town',  spot:'Melkbosstrand',            typ:'W/K', disziplin:'Welle klein', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:170, neben_max:190, neben_center:180, lat:-33.73,   lon:18.445  },
+      { land:'Südafrika', region:'Südküste Cape Town',   spot:'Witsands',                 typ:'W/K', disziplin:'Welle gross', haupt_min:260, haupt_max:280, haupt_center:270, neben_min:305, neben_max:325, neben_center:315, lat:-34.17,   lon:18.39   },
+      { land:'Südafrika', region:'Südküste Cape Town',   spot:'Witsands',                 typ:'W/K', disziplin:'Welle gross', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:147, neben_max:167, neben_center:157, lat:-34.17,   lon:18.39   },
+      { land:'Südafrika', region:'Südküste Cape Town',   spot:'Scarborough Beach',        typ:'W/K', disziplin:'Welle gross', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:260, neben_max:280, neben_center:270, lat:-34.199,  lon:18.3723 },
+      { land:'Südafrika', region:'Südküste Cape Town',   spot:'Simons Town Long Beach',   typ:'W/K', disziplin:'Flachwasser', haupt_min:147, haupt_max:167, haupt_center:157, neben_min:125, neben_max:145, neben_center:135, lat:-34.1833, lon:18.4333 },
+      { land:'Südafrika', region:'Südküste Cape Town',   spot:'Glencairn',                typ:'W/K', disziplin:'Welle klein', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:147, neben_max:167, neben_center:157, lat:-34.15,   lon:18.4333 },
+      { land:'Südafrika', region:'Südküste Cape Town',   spot:'Platboom',                 typ:'W/K', disziplin:'Welle gross', haupt_min:305, haupt_max:325, haupt_center:315, neben_min:260, neben_max:280, neben_center:270, lat:-34.32,   lon:18.41   },
+      { land:'Südafrika', region:'Westcoast Nord',       spot:'Yzerfontein',              typ:'W/K', disziplin:'Welle gross', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:147, neben_max:167, neben_center:157, lat:-33.35,   lon:18.16   },
+      { land:'Südafrika', region:'Langebaan',            spot:'Langebaan Shark Bay',      typ:'W/K', disziplin:'Flachwasser', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:170, neben_max:190, neben_center:180, lat:-33.1,    lon:18.03   },
+      { land:'Südafrika', region:'Langebaan',            spot:'Langebaan',                typ:'W/K', disziplin:'Flachwasser', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:215, neben_max:235, neben_center:225, lat:-33.09,   lon:18.03   },
+      { land:'Südafrika', region:'Westcoast Nord',       spot:'Swartriet',                typ:'W/K', disziplin:'Welle gross', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:305, neben_max:325, neben_center:315, lat:-32.9483, lon:17.8874 },
+      { land:'Südafrika', region:'Langebaan',            spot:'Club Mykonos',             typ:'W/K', disziplin:'Welle klein', haupt_min:125, haupt_max:145, haupt_center:135, neben_min:170, neben_max:190, neben_center:180, lat:-33.07,   lon:17.99   },
+      { land:'Südafrika', region:'Westcoast Nord',       spot:'Elands Bay',               typ:'W/K', disziplin:'Welle gross', haupt_min:215, haupt_max:235, haupt_center:225, neben_min:305, neben_max:325, neben_center:315, lat:-32.3167, lon:18.35   },
+    ];
+
+    // ── Mapping ──────────────────────────────────────────────────
+
+    function mapDisziplin(d) {
+      const m = { 'Welle gross': 'welle_gross', 'Welle klein': 'welle_klein', 'Flachwasser': 'flachwasser' };
+      return m[d] ?? 'flachwasser';
+    }
+
+    function mapSport(typ) {
+      if (typ === 'W') return ['windsurf'];
+      if (typ === 'K') return ['kite'];
+      return ['windsurf', 'kite'];
+    }
+
+    function buildSpots() {
+      const map = new Map();
+
+      for (const row of RAW) {
+        const key = `${row.spot}|||${row.land}|||${row.region}`;
+        const haupt = { mitte: row.haupt_center, range: Math.round((row.haupt_max - row.haupt_min) / 2) };
+        const neben = { mitte: row.neben_center, range: Math.round((row.neben_max - row.neben_min) / 2) };
+        const disziplin = mapDisziplin(row.disziplin);
+        const sport = mapSport(row.typ);
+
+        if (map.has(key)) {
+          const s = map.get(key);
+          // Windrichtungen mergen (keine Duplikate)
+          for (const w of [haupt, neben]) {
+            if (!s.windrichtungen.some(e => e.mitte === w.mitte)) {
+              s.windrichtungen.push(w);
+            }
+          }
+          // Disziplinen mergen
+          if (!s.disziplinen.includes(disziplin)) s.disziplinen.push(disziplin);
+          // Sport mergen
+          for (const sp of sport) {
+            if (!s.sport.includes(sp)) s.sport.push(sp);
+          }
+        } else {
+          map.set(key, {
+            name:         row.spot,
+            land:         row.land,
+            region:       row.region,
+            lat:          row.lat,
+            lng:          row.lon,
+            disziplinen:  [disziplin],
+            sport,
+            windrichtungen: [haupt, neben],
+            level:        'intermediate',
+            tide:         'egal',
+            stroemung:    'keine',
+            beschreibung: '',
+            bilder:       [],
+            video_url:    '',
+            link_url:     '',
+          });
+        }
+      }
+
+      return [...map.values()];
+    }
+
+    // ── UI ───────────────────────────────────────────────────────
+
+    const statusEl  = document.getElementById('status');
+    const importBtn = document.getElementById('import-btn');
+    const loginBtn  = document.getElementById('login-btn');
+
+    function log(msg) {
+      statusEl.style.color = 'var(--text)';
+      statusEl.textContent += msg + '\n';
+    }
+
+    let currentUser = null;
+
+    onAuthStateChanged(auth, async user => {
+      currentUser = user;
+      if (user) {
+        const role = await getUserRole(user.uid);
+        log(`✓ Eingeloggt als: ${user.displayName ?? user.email}`);
+        log(`  Rolle: ${role}`);
+        if (role === 'admin' || role === 'editor') {
+          importBtn.disabled = false;
+          log('  → Import-Button aktiv');
+        } else {
+          log('  ⚠ Keine Schreibrechte — Import gesperrt');
+        }
+        loginBtn.disabled = true;
+      }
+    });
+
+    loginBtn.addEventListener('click', async () => {
+      try { await loginWithGoogle(); }
+      catch (e) { log('✗ Login fehlgeschlagen: ' + e.message); }
+    });
+
+    importBtn.addEventListener('click', async () => {
+      if (!currentUser) return;
+      importBtn.disabled = true;
+      statusEl.textContent = '';
+
+      const spots = buildSpots();
+      log(`Import startet — ${spots.length} Spots vorbereitet\n`);
+
+      let ok = 0, fail = 0;
+      for (const spot of spots) {
+        try {
+          await addDoc(collection(db, 'spots'), {
+            ...spot,
+            erstellt_am:  serverTimestamp(),
+            erstellt_von: currentUser.uid,
+          });
+          log(`✓ ${spot.name} (${spot.windrichtungen.length} Windrichtungen, ${spot.disziplinen.join(', ')})`);
+          ok++;
+        } catch (e) {
+          log(`✗ ${spot.name}: ${e.message}`);
+          fail++;
+        }
+      }
+
+      log(`\nFertig: ${ok} importiert, ${fail} Fehler`);
+      if (ok > 0) log('→ Jetzt index.html öffnen und testen!');
+    });
+  </script>
+</body>
+</html>

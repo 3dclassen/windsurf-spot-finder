@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0f1117">
+  <title>Spot — Windsurf Spot Finder</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="hdr">
+    <a href="index.html" class="btn-icon" title="Zurück">←</a>
+    <div class="hdr-title" id="hdr-name">Spot</div>
+    <div class="hdr-right" id="hdr-admin-btns" style="display:none">
+      <a id="edit-btn" href="#" class="btn btn-ghost" style="padding:.3rem .65rem;font-size:.78rem">Bearbeiten</a>
+    </div>
+  </header>
+
+  <!-- Content wird per JS befüllt -->
+  <div class="detail-scroll" id="detail-content">
+    <div class="spinner"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { getSpot, auth, onAuthStateChanged, getUserRole, deleteSpot } from './js/firebase.js';
+    import { getLocation, haversine, formatDistance } from './js/geo.js';
+
+    const DISZIPLIN_LABELS = {
+      welle_gross: 'Welle groß', welle_klein: 'Welle klein', flachwasser: 'Flachwasser'
+    };
+    const LEVEL_LABELS = {
+      beginner: 'Beginner', intermediate: 'Intermediate',
+      expert: 'Expert', experts_only: 'Experts only'
+    };
+    const WIND_LABELS = { 0:'N', 45:'NO', 90:'O', 135:'SO', 180:'S', 225:'SW', 270:'W', 315:'NW' };
+
+    function escHtml(s) {
+      return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function degToLabel(deg) {
+      const dirs = Object.entries(WIND_LABELS).sort((a,b)=>a[0]-b[0]);
+      let best = dirs[0][1], bestDiff = 360;
+      for (const [d, l] of dirs) {
+        let diff = Math.abs(deg - Number(d)) % 360;
+        if (diff > 180) diff = 360 - diff;
+        if (diff < bestDiff) { bestDiff = diff; best = l; }
+      }
+      return best;
+    }
+
+    // Windrose SVG
+    function renderWindrose(windrichtungen) {
+      const sz = 130, cx = 65, cy = 65, ro = 55, ri = 16;
+
+      function polar(r, angleDeg) {
+        const rad = (angleDeg - 90) * Math.PI / 180;
+        return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+      }
+
+      function wedge(mitte, range) {
+        const s = mitte - range, e = mitte + range;
+        const p1 = polar(ro, s), p2 = polar(ro, e);
+        const p3 = polar(ri, e), p4 = polar(ri, s);
+        const la = (e - s) > 180 ? 1 : 0;
+        return `<path d="M${p1.x} ${p1.y} A${ro} ${ro} 0 ${la} 1 ${p2.x} ${p2.y} L${p3.x} ${p3.y} A${ri} ${ri} 0 ${la} 0 ${p4.x} ${p4.y}Z" fill="var(--accent)" opacity=".75"/>`;
+      }
+
+      const cardinals = [
+        { label:'N', deg:0 }, { label:'O', deg:90 },
+        { label:'S', deg:180 }, { label:'W', deg:270 }
+      ].map(({ label, deg }) => {
+        const p = polar(ro + 10, deg);
+        return `<text x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="middle"
+          fill="var(--muted)" font-size="9" font-family="system-ui">${label}</text>`;
+      });
+
+      const arcs = windrichtungen.map(w => wedge(w.mitte, w.range)).join('');
+
+      return `
+        <svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">
+          <circle cx="${cx}" cy="${cy}" r="${ro}" fill="none" stroke="var(--border)" stroke-width="1.5"/>
+          <circle cx="${cx}" cy="${cy}" r="${ri}" fill="var(--s2)" stroke="var(--border)" stroke-width="1"/>
+          ${arcs}
+          ${cardinals.join('')}
+        </svg>`;
+    }
+
+    // YouTube/Vimeo Embed-URL
+    function embedUrl(url) {
+      if (!url) return null;
+      const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+      if (yt) return `https://www.youtube-nocookie.com/embed/${yt[1]}`;
+      const vi = url.match(/vimeo\.com\/(\d+)/);
+      if (vi) return `https://player.vimeo.com/video/${vi[1]}`;
+      return null;
+    }
+
+    function showToast(msg, type = '') {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.className = 'toast show' + (type ? ' ' + type : '');
+      setTimeout(() => t.className = 'toast', 2500);
+    }
+
+    async function main() {
+      const id = new URLSearchParams(location.search).get('id');
+      if (!id) { location.href = 'index.html'; return; }
+
+      const spot = await getSpot(id);
+      const content = document.getElementById('detail-content');
+
+      if (!spot) {
+        content.innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div><div class="empty-title">Spot nicht gefunden</div></div>`;
+        return;
+      }
+
+      document.title = `${spot.name} — Windsurf Spot Finder`;
+      document.getElementById('hdr-name').textContent = spot.name;
+
+      // Distanz (async, kein Blocker)
+      let distHtml = '';
+      try {
+        const loc = JSON.parse(localStorage.getItem('user_loc') ?? 'null');
+        if (loc) {
+          const km = haversine(loc.lat, loc.lng, spot.lat, spot.lng);
+          distHtml = `<div class="detail-dist">📍 ${formatDistance(km)} entfernt</div>`;
+        }
+      } catch (_) {}
+
+      const diszBadges = (spot.disziplinen ?? [])
+        .map(d => `<span class="badge badge-disz">${DISZIPLIN_LABELS[d] ?? d}</span>`).join('');
+      const sportBadges = (spot.sport ?? [])
+        .map(s => `<span class="badge badge-sport">${escHtml(s)}</span>`).join('');
+      const levelBadge = spot.level
+        ? `<span class="badge badge-level ${spot.level}">${LEVEL_LABELS[spot.level] ?? spot.level}</span>` : '';
+
+      const windrose = spot.windrichtungen?.length
+        ? `<div class="detail-section">
+            <div class="detail-section-title">Windrichtungen</div>
+            <div class="windrose-wrap">
+              ${renderWindrose(spot.windrichtungen)}
+              <div class="windrose-list">
+                ${spot.windrichtungen.map(w =>
+                  `<div class="windrose-item">${degToLabel(w.mitte)} (${w.mitte}°) <span>±${w.range}°</span></div>`
+                ).join('')}
+              </div>
+            </div>
+          </div>` : '';
+
+      // Info-Grid
+      const infoItems = [];
+      if (spot.level) infoItems.push(['Level', LEVEL_LABELS[spot.level] ?? spot.level]);
+      if (spot.tide && spot.tide !== 'egal') infoItems.push(['Tide', spot.tide === 'high' ? 'Hochwasser' : 'Niedrigwasser']);
+      if (spot.stroemung) infoItems.push(['Strömung', spot.stroemung]);
+      if (spot.lat && spot.lng) infoItems.push(['Koordinaten', `${spot.lat.toFixed(4)}, ${spot.lng.toFixed(4)}`]);
+      const infoGrid = infoItems.length ? `
+        <div class="detail-section">
+          <div class="detail-section-title">Details</div>
+          <div class="info-grid">
+            ${infoItems.map(([l,v]) => `
+              <div class="info-item">
+                <div class="info-item-label">${escHtml(l)}</div>
+                <div class="info-item-value">${escHtml(v)}</div>
+              </div>`).join('')}
+          </div>
+        </div>` : '';
+
+      // Bilder
+      const galleryHtml = spot.bilder?.length ? `
+        <div class="detail-section">
+          <div class="detail-section-title">Fotos</div>
+          <div class="gallery">
+            ${spot.bilder.map(url => `<img src="${escHtml(url)}" alt="${escHtml(spot.name)}" loading="lazy">`).join('')}
+          </div>
+        </div>` : '';
+
+      // Video
+      const vidUrl = embedUrl(spot.video_url);
+      const videoHtml = vidUrl ? `
+        <div class="detail-section">
+          <div class="detail-section-title">Video</div>
+          <div class="video-wrap">
+            <iframe src="${escHtml(vidUrl)}" allowfullscreen loading="lazy"></iframe>
+          </div>
+        </div>` : '';
+
+      // Beschreibung
+      const descHtml = spot.beschreibung ? `
+        <div class="detail-section">
+          <div class="detail-section-title">Beschreibung</div>
+          <div class="text-sm" style="line-height:1.6;color:var(--text)">${escHtml(spot.beschreibung)}</div>
+        </div>` : '';
+
+      // Links
+      const mapsUrl = `https://www.google.com/maps?q=${spot.lat},${spot.lng}`;
+      const linksHtml = `
+        <div class="detail-section">
+          <div class="detail-section-title">Links</div>
+          <div class="row" style="flex-wrap:wrap;gap:.5rem">
+            <a href="${mapsUrl}" target="_blank" rel="noopener" class="btn btn-ghost" style="font-size:.82rem">
+              🗺️ Google Maps
+            </a>
+            ${spot.link_url ? `<a href="${escHtml(spot.link_url)}" target="_blank" rel="noopener" class="btn btn-ghost" style="font-size:.82rem">🔗 Spot-Link</a>` : ''}
+          </div>
+        </div>`;
+
+      content.innerHTML = `
+        <div class="detail-hero">
+          <div class="detail-name">${escHtml(spot.name)}</div>
+          <div class="detail-region">${escHtml([spot.land, spot.region].filter(Boolean).join(' · '))}</div>
+          ${distHtml}
+          <div class="badges">${diszBadges}${sportBadges}${levelBadge}</div>
+        </div>
+        ${windrose}
+        ${infoGrid}
+        ${descHtml}
+        ${galleryHtml}
+        ${videoHtml}
+        ${linksHtml}
+        <div style="height:2rem"></div>
+      `;
+
+      // Admin-Buttons
+      onAuthStateChanged(auth, async user => {
+        if (!user) return;
+        const role = await getUserRole(user.uid);
+        if (role === 'admin' || role === 'editor') {
+          document.getElementById('hdr-admin-btns').style.display = 'flex';
+          document.getElementById('edit-btn').href = `admin.html?id=${id}`;
+
+          // Delete-Button dynamisch hinzufügen
+          const delBtn = document.createElement('button');
+          delBtn.className = 'btn btn-danger';
+          delBtn.style.cssText = 'padding:.3rem .65rem;font-size:.78rem';
+          delBtn.textContent = 'Löschen';
+          delBtn.addEventListener('click', async () => {
+            if (!confirm(`"${spot.name}" wirklich löschen?`)) return;
+            try {
+              await deleteSpot(id);
+              showToast('Spot gelöscht', 'ok');
+              setTimeout(() => location.href = 'index.html', 1200);
+            } catch (e) {
+              showToast('Fehler beim Löschen', 'err');
+            }
+          });
+          document.getElementById('hdr-admin-btns').appendChild(delBtn);
+        }
+      });
+
+      // GPS-Position im localStorage speichern für Distanzanzeige
+      try {
+        const loc = await import('./js/geo.js').then(m => m.getLocation());
+        localStorage.setItem('user_loc', JSON.stringify(loc));
+      } catch (_) {}
+    }
+
+    main();
+  </script>
+</body>
+</html>
