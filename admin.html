@@ -178,6 +178,19 @@
         <input id="f-link-url" class="form-input" type="url" placeholder="https://…">
       </div>
 
+      <!-- Fotos -->
+      <div class="form-group">
+        <div class="form-label">Fotos (URLs)</div>
+        <div id="bilder-list" style="display:flex;flex-direction:column;gap:.4rem"></div>
+        <button type="button" id="add-bild-btn" class="btn btn-ghost" style="align-self:flex-start;margin-top:.4rem;font-size:.82rem">
+          + Foto-URL hinzufügen
+        </button>
+        <div class="text-sm text-muted" style="margin-top:.35rem;line-height:1.5">
+          Lade Fotos ins GitHub-Repo (z.B. Ordner <code style="color:var(--accent)">img/</code>) hoch und trage die URL ein:<br>
+          <code style="color:var(--muted);font-size:.75rem">https://3dclassen.github.io/windsurf-spot-finder/img/dateiname.jpg</code>
+        </div>
+      </div>
+
       <!-- Submit -->
       <button id="submit-btn" type="submit" class="btn btn-primary" style="width:100%;padding:.75rem">
         Spot anlegen

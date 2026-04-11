@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#0f1117">
   <title>Windsurf Spot Finder</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
 
@@ -16,6 +17,7 @@
     <div class="hdr-ico">🏄</div>
     <div class="hdr-title">Spot<span>Finder</span></div>
     <div class="hdr-right">
+      <button id="map-toggle" class="btn-icon" title="Kartenansicht">🗺️</button>
       <a id="admin-link" href="admin.html" class="btn-icon hidden" title="Admin">⚙️</a>
     </div>
   </header>
@@ -59,8 +61,11 @@
     <span id="loc-text">Standort wird ermittelt…</span>
   </div>
 
+  <!-- Karte -->
+  <div id="map-container" class="hidden"></div>
+
   <!-- Results -->
-  <div class="results">
+  <div class="results" id="results-wrap">
     <div class="results-header">
       <div id="result-count" class="results-count"></div>
     </div>
@@ -69,6 +74,7 @@
     </div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
