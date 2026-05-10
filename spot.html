@@ -15,8 +15,11 @@
   <header class="hdr">
     <a href="index.html" class="btn-icon" title="Zurück">←</a>
     <div class="hdr-title" id="hdr-name">Spot</div>
-    <div class="hdr-right" id="hdr-admin-btns" style="display:none">
-      <a id="edit-btn" href="#" class="btn btn-ghost" style="padding:.3rem .65rem;font-size:.78rem">Bearbeiten</a>
+    <div class="hdr-right" style="display:flex;align-items:center;gap:.4rem">
+      <button id="share-btn" class="btn-share" title="Link teilen">🔗 Teilen</button>
+      <div id="hdr-admin-btns" style="display:none;align-items:center;gap:.4rem">
+        <a id="edit-btn" href="#" class="btn btn-ghost" style="padding:.3rem .65rem;font-size:.78rem">Bearbeiten</a>
+      </div>
     </div>
   </header>
 
@@ -39,6 +42,7 @@
       expert: 'Expert', experts_only: 'Experts only'
     };
     const WIND_LABELS = { 0:'N', 45:'NO', 90:'O', 135:'SO', 180:'S', 225:'SW', 270:'W', 315:'NW' };
+    const TIDE_LABELS = { auflaufend: 'Auflaufend', mid: 'Mid Tide', low: 'Low Tide', high: 'Hochwasser' };
 
     function escHtml(s) {
       return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -151,13 +155,20 @@
                 ).join('')}
               </div>
             </div>
+            ${spot.windrichtungen_text ? `<div class="text-sm text-muted" style="margin-top:.5rem;line-height:1.5">${escHtml(spot.windrichtungen_text)}</div>` : ''}
           </div>` : '';
 
       // Info-Grid
       const infoItems = [];
       if (spot.level) infoItems.push(['Level', LEVEL_LABELS[spot.level] ?? spot.level]);
-      if (spot.tide && spot.tide !== 'egal') infoItems.push(['Tide', spot.tide === 'high' ? 'Hochwasser' : 'Niedrigwasser']);
-      if (spot.stroemung) infoItems.push(['Strömung', spot.stroemung]);
+      if (spot.tide_einfluss === false) {
+        infoItems.push(['Tide', 'Unabhängig']);
+      } else if (spot.tide && spot.tide !== 'egal') {
+        infoItems.push(['Tide', TIDE_LABELS[spot.tide] ?? spot.tide]);
+      }
+      if (spot.stroemung && spot.stroemung !== 'keine') infoItems.push(['Strömung', spot.stroemung]);
+      if (spot.parken) infoItems.push(['Parken', spot.parken === 'spotnah' ? 'Spotnah' : 'Entfernt']);
+      if (spot.big_days) infoItems.push(['Big Days', '⚡ Ja']);
       if (spot.lat && spot.lng) infoItems.push(['Koordinaten', `${spot.lat.toFixed(4)}, ${spot.lng.toFixed(4)}`]);
       const infoGrid = infoItems.length ? `
         <div class="detail-section">
@@ -197,6 +208,22 @@
           <div class="text-sm" style="line-height:1.6;color:var(--text)">${escHtml(spot.beschreibung)}</div>
         </div>` : '';
 
+      // Hinweise (Warnungen, Sicherheitshinweise, Tide-Details etc.)
+      const HINWEIS_FIELDS = ['kite_hinweis','kite_warnung','sicherheitshinweis','tide_warnung',
+        'tide_details','flachwasser_details','wind_besonderheit','flussmündung_warnung','spot_details','hinweis'];
+      const hinweise = HINWEIS_FIELDS.filter(f => spot[f]).map(f => spot[f]);
+      const hinweiseHtml = hinweise.length ? `
+        <div class="detail-section">
+          <div class="detail-section-title">Hinweise</div>
+          <div style="display:flex;flex-direction:column;gap:.4rem">
+            ${hinweise.map(h => `<div class="text-sm" style="line-height:1.5;padding:.5rem .65rem;background:var(--s2);border-radius:8px;border-left:3px solid var(--accent)">${escHtml(h)}</div>`).join('')}
+          </div>
+        </div>` : '';
+
+      // Quelle
+      const quelleHtml = spot.quelle ? `
+        <div class="text-sm text-muted" style="padding:0 1rem 1rem;text-align:center;opacity:.5">Quelle: ${escHtml(spot.quelle)}</div>` : '';
+
       // Links
       const mapsUrl = `https://www.google.com/maps?q=${spot.lat},${spot.lng}`;
       const linksHtml = `
@@ -220,9 +247,11 @@
         ${windrose}
         ${infoGrid}
         ${descHtml}
+        ${hinweiseHtml}
         ${galleryHtml}
         ${videoHtml}
         ${linksHtml}
+        ${quelleHtml}
         <div style="height:2rem"></div>
       `;
 
@@ -261,6 +290,23 @@
     }
 
     main();
+
+    // B1 — Teilen-Button
+    document.getElementById('share-btn').addEventListener('click', async () => {
+      const url = location.href;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: document.title, url });
+          return;
+        } catch (_) {}
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast('Link kopiert!', 'ok');
+      } catch (_) {
+        showToast('Link konnte nicht kopiert werden', 'err');
+      }
+    });
   </script>
 </body>
 </html>

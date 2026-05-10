@@ -349,3 +349,158 @@ body {
 .text-muted { color: var(--muted); }
 .text-sm { font-size: .82rem; }
 .hidden { display: none !important; }
+
+/* ── Wind Widget ─────────────────────────────────── */
+.wind-widget {
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  padding: .85rem 1.25rem .6rem;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  flex-shrink: 0;
+}
+
+.wind-loading {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .3rem 0;
+}
+.wind-loading-text { font-size: .82rem; color: var(--muted); }
+
+.spinner-sm {
+  width: 18px; height: 18px;
+  border-width: 2.5px;
+  margin: 0;
+}
+
+.wind-auto {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+}
+
+.wind-compass { flex-shrink: 0; line-height: 0; }
+
+.wind-info { flex: 1; min-width: 0; }
+.wind-info-dir {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  color: var(--text);
+  line-height: 1.2;
+}
+.wind-info-speed {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: .15rem;
+}
+.wind-manual-badge { color: var(--orange) !important; font-size: .75rem !important; }
+
+.wind-edit-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: .9rem;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .15s, color .15s;
+}
+.wind-edit-btn:hover { background: var(--s2); color: var(--text); }
+
+.wind-manual-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  padding: .15rem 0;
+}
+
+.time-selector { display: flex; flex-wrap: wrap; gap: .35rem; }
+.time-selector .toggle { font-size: .75rem; padding: .28rem .6rem; }
+
+/* ── Toolbar (Radius + Filter) ───────────────────── */
+.toolbar {
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  padding: .55rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-shrink: 0;
+}
+.toolbar-right { margin-left: auto; flex-shrink: 0; }
+
+#radius-group { flex: 1; }
+#radius-group .toggle { font-size: .75rem; padding: .28rem .6rem; }
+
+.btn-filter {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--muted);
+  font-size: .78rem; font-weight: 600;
+  padding: .3rem .75rem;
+  cursor: pointer; white-space: nowrap;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color .15s, color .15s;
+  display: flex; align-items: center; gap: .3rem;
+}
+.btn-filter:hover { border-color: var(--accent); color: var(--text); }
+
+.filter-badge {
+  background: var(--accent); color: #fff;
+  border-radius: 10px; font-size: .68rem; font-weight: 700;
+  min-width: 17px; height: 17px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 .3rem; line-height: 1;
+}
+
+/* ── Filter Panel ─────────────────────────────────── */
+.filter-panel {
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  padding: .7rem 1.25rem;
+  display: flex; flex-direction: column; gap: .6rem;
+  flex-shrink: 0;
+}
+.filter-row { display: flex; flex-direction: column; gap: .3rem; }
+
+/* ── Suche (Hauptseite) ──────────────────────────── */
+.search-main {
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  padding: .5rem 1.25rem;
+  flex-shrink: 0;
+}
+.search-main .search-input { font-size: .85rem; padding: .5rem 2.2rem .5rem .8rem; }
+
+/* ── Match Dot ────────────────────────────────────── */
+.match-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green); flex-shrink: 0;
+  box-shadow: 0 0 5px var(--green);
+}
+.match-dot.no-match { background: var(--border); box-shadow: none; }
+
+/* ── Spot card: kein Match → ausgegraut ──────────── */
+.spot-card.no-match { opacity: .45; }
+.spot-card.no-match:hover { opacity: .7; }
+
+/* ── Share-Button ─────────────────────────────────── */
+.btn-share {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px; color: var(--muted);
+  font-size: .82rem; font-weight: 600;
+  padding: .3rem .65rem;
+  cursor: pointer; font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.btn-share:hover { background: var(--s2); color: var(--text); border-color: var(--accent); }

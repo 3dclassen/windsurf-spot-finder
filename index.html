@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#0f1117">
   <title>Windsurf Spot Finder</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
@@ -22,35 +23,47 @@
     </div>
   </header>
 
-  <!-- Filter -->
-  <div class="filter-panel">
+  <!-- Wind Widget -->
+  <div class="wind-widget">
 
-    <div>
-      <div class="lbl">Windrichtung</div>
-      <div id="wind-group" class="toggle-group"></div>
+    <!-- State: Laden -->
+    <div id="wind-loading" class="wind-loading">
+      <div class="spinner spinner-sm"></div>
+      <span class="wind-loading-text">Winddaten werden geladen…</span>
     </div>
 
-    <div>
-      <div class="lbl">Disziplin</div>
-      <div id="disz-group" class="toggle-group"></div>
+    <!-- State: Auto (GPS + Open-Meteo) -->
+    <div id="wind-display" class="wind-auto hidden">
+      <div id="wind-compass-svg" class="wind-compass"></div>
+      <div class="wind-info">
+        <div class="wind-info-dir" id="wind-label-text">— °</div>
+        <div class="wind-info-speed" id="wind-speed-text">— kn</div>
+      </div>
+      <button id="wind-edit-btn" class="wind-edit-btn" title="Manuell überschreiben">✏️</button>
     </div>
 
-    <div>
-      <div class="lbl">Sport</div>
-      <div id="sport-group" class="toggle-group"></div>
+    <!-- State: Override (manuell gewählt, aber Forecast vorhanden) -->
+    <div id="wind-override" class="wind-auto hidden">
+      <div id="wind-override-compass" class="wind-compass"></div>
+      <div class="wind-info">
+        <div class="wind-info-dir" id="wind-override-label">— °</div>
+        <div class="wind-info-speed wind-manual-badge">Manuell</div>
+      </div>
+      <button id="wind-auto-btn" class="wind-edit-btn" title="Zurück zu automatisch">↺</button>
     </div>
 
-    <div class="search-wrap">
-      <input
-        id="search-input"
-        class="search-input"
-        type="search"
-        placeholder="Spot oder Region suchen…"
-        autocomplete="off"
-        autocorrect="off"
-        spellcheck="false"
-      >
-      <button id="search-clear" class="search-clear" type="button">✕</button>
+    <!-- State: Manuell (kein GPS / kein Internet) -->
+    <div id="wind-manual" class="wind-manual-wrap hidden">
+      <div class="lbl">Windrichtung wählen</div>
+      <div id="wind-manual-group" class="toggle-group"></div>
+    </div>
+
+    <!-- Zeitauswahl — nur bei Auto-State sichtbar -->
+    <div id="time-selector" class="time-selector hidden">
+      <button class="toggle on" data-time="now">Jetzt</button>
+      <button class="toggle" data-time="+3h">+3h</button>
+      <button class="toggle" data-time="tomorrow-am">Morgen früh</button>
+      <button class="toggle" data-time="tomorrow-pm">Morgen nachm.</button>
     </div>
 
   </div>
@@ -61,10 +74,50 @@
     <span id="loc-text">Standort wird ermittelt…</span>
   </div>
 
+  <!-- Radius + Filter-Zeile -->
+  <div class="toolbar">
+    <div id="radius-group" class="toggle-group"></div>
+    <div class="toolbar-right">
+      <button id="filter-btn" class="btn-filter">
+        Filter <span id="filter-count" class="filter-badge hidden">0</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Zusatzfilter (eingeklappt) -->
+  <div id="filter-panel" class="filter-panel hidden">
+    <div class="filter-row">
+      <div class="lbl">Disziplin</div>
+      <div id="disz-group" class="toggle-group"></div>
+    </div>
+    <div class="filter-row">
+      <div class="lbl">Sport</div>
+      <div id="sport-group" class="toggle-group"></div>
+    </div>
+    <div class="filter-row">
+      <div class="lbl">Level</div>
+      <div id="level-group" class="toggle-group"></div>
+    </div>
+  </div>
+
+  <!-- Suche -->
+  <div class="search-wrap search-main">
+    <input
+      id="search-input"
+      class="search-input"
+      type="search"
+      placeholder="Spot oder Region suchen…"
+      autocomplete="off"
+      autocorrect="off"
+      spellcheck="false"
+    >
+    <button id="search-clear" class="search-clear" type="button">✕</button>
+  </div>
+
   <!-- Karte -->
   <div id="map-container" class="hidden"></div>
 
-  <!-- Results -->
+  <!-- Ergebnisse -->
   <div class="results" id="results-wrap">
     <div class="results-header">
       <div id="result-count" class="results-count"></div>
@@ -76,5 +129,10 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
 </body>
 </html>

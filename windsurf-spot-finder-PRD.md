@@ -1,8 +1,8 @@
 # Windsurf Spot Finder — Product Requirements Document
-**Version:** 2.0  
+**Version:** 2.1  
 **Stand:** April 2026  
 **Autor:** Daniel Classen  
-**Status:** In Entwicklung
+**Status:** v2 produktiv — läuft auf GitHub Pages
 
 ---
 
@@ -93,43 +93,65 @@ Standardrichtungen zur Auswahl im UI:
 
 ## 6. Features
 
-### 6.1 Priorität 1 — v2 Kern
+### 6.1 Priorität 1 — v2 Kern ✅ FERTIG
 
-**Spot-Suche**
+**Spot-Suche** ✅
 - Filter: Windrichtung (Buttons N/NO/O/SO/S/SW/W/NW), Disziplin, Sport (Windsurf/Kite)
 - Freitextsuche nach Spotname oder Region (Live-Suche während Tippen)
 - Ergebnisliste sortiert nach Distanz zum aktuellen Standort
 - Jeder Spot zeigt: Name, Region, Distanz, Disziplin-Badges, Level
 
-**Standort**
+**Standort** ✅
 - GPS-Standort des Users wird beim Öffnen ermittelt
 - Distanzberechnung zu jedem Spot (Haversine-Formel)
-- Fallback: manuell Region wählen wenn kein GPS
+- Fallback: Distanz wird nicht angezeigt wenn kein GPS (kein manueller Fallback nötig)
 
-**Spot-Detailseite**
+**Spot-Detailseite** ✅
 - Alle Felder anzeigen
-- Bildergalerie (ein oder mehrere Fotos)
+- Bildergalerie (ein oder mehrere Fotos via URL)
 - Video eingebettet (YouTube/Vimeo iFrame) wenn vorhanden
 - Externer Link-Button wenn vorhanden
-- Karte mit Pin (Google Maps oder OpenStreetMap Link)
-- Windrose: visuelle Darstellung der funktionierenden Windrichtungen
+- Google Maps Link mit Pin
+- Windrose: SVG-Darstellung der funktionierenden Windrichtungen (dunkel, blau)
 
-**Datenbank**
-- Firebase Firestore als Backend
+**Datenbank** ✅
+- Firebase Firestore als Backend (Spark Plan — kostenlos)
 - Spots werden einmalig geladen und lokal gecacht (Offline-Fähigkeit)
+- 61 Spots importiert: Südafrika (16), Frankreich (28), Dänemark (17)
 
-### 6.2 Priorität 2 — Admin-Bereich
+### 6.2 Priorität 2 — Admin-Bereich ✅ FERTIG
 
-**Spot eintragen / bearbeiten**
+**Spot eintragen / bearbeiten** ✅
 - Formular mit allen Feldern aus Abschnitt 5
-- Windrichtungen: grafische Auswahl (Buttons + Range-Slider)
+- Windrichtungen: grafische Auswahl (8 Buttons + Range-Slider ±5°–45°)
+- Foto-URLs: Liste von URLs, + hinzufügen / × entfernen
+- Bilder werden über GitHub Repo gehostet (kein Firebase Storage nötig → kein Billing-Risiko)
 - Nur für freigegebene User (Admin-Rolle)
 - Firebase Authentication (Google Login)
 
-**Rollen & Rechte**
+**Rollen & Rechte** ✅
 - `viewer`: Alle sehen, nichts ändern (Standard)
 - `editor`: Spots eintragen und eigene bearbeiten
 - `admin`: Alles, inkl. User verwalten
+
+### 6.3 Priorität 3 — Nice to Have (teilweise fertig)
+
+**Kartenansicht** ✅
+- Toggle-Button 🗺️ in der Hauptansicht
+- Leaflet.js + CartoDB Dark Tiles (kostenlos, kein API-Key)
+- Alle gefilterten Spots als blaue Punkte
+- Popup mit Name, Region, Distanz und "Details →" Link
+- Karte aktualisiert sich live wenn Filter geändert werden
+
+**Foto-Upload** ✅ (via URL, kein Firebase Storage)
+- Fotos werden ins GitHub Repo geladen (`img/` Ordner)
+- URL-Format: `https://3dclassen.github.io/windsurf-spot-finder/img/dateiname.jpg`
+- Im Admin-Formular: beliebig viele URLs eintragen
+
+**Noch offen:**
+- [ ] Filterkombinationen speichern (localStorage)
+- [ ] Teilen-Funktion (direkter Link zu einem Spot — URL mit `?id=`)
+- [ ] PWA (Manifest + Service Worker für Offline & Homescreen-Icon)
 
 ### 6.4 Winddaten-Integration — Architektur-Vorbereitungen (Bonus / v3)
 
@@ -162,29 +184,18 @@ Spot "Sunset Beach": windrichtungen: [{ mitte: 315, range: 20 }]
 → 310° liegt in 315° ±20° → MATCH → Spot wird grün markiert
 ```
 
-### 6.5 Priorität 3 — Nice to Have
-
-- Foto-Upload direkt in der App (Firebase Storage)
-- Spots auf Karte anzeigen (Kartenansicht)
-- Filterkombinationen speichern
-- Teilen-Funktion (Link zu einem Spot)
-- Winddaten-Integration (Open-Meteo, automatischer Spot-Match)
-
-- Foto-Upload direkt in der App (Firebase Storage)
-- Spots auf Karte anzeigen (Kartenansicht)
-- Filterkombinationen speichern
-- Teilen-Funktion (Link zu einem Spot)
-
 ---
 
 ## 7. Technische Architektur
 
 ```
 Frontend:          GitHub Pages (statische HTML/CSS/JS App)
-Datenbank:         Firebase Firestore
+Datenbank:         Firebase Firestore (Spark Plan, kostenlos)
 Authentication:    Firebase Auth (Google Login für Admin)
-Storage:           Firebase Storage (Fotos, Priorität 3)
+Foto-Hosting:      GitHub Repo (img/ Ordner) — kein Firebase Storage
+Karte:             Leaflet.js + CartoDB Dark Tiles (kostenlos)
 Hosting:           github.com/3dclassen/windsurf-spot-finder
+Live:              https://3dclassen.github.io/windsurf-spot-finder/
 ```
 
 **Warum Firebase?**
@@ -196,13 +207,13 @@ Hosting:           github.com/3dclassen/windsurf-spot-finder
 
 ## 8. Firebase Setup
 
-### 8.1 Was braucht Firebase Firestore?
+### 8.1 Was braucht Firebase?
 
-Für die App werden folgende Firebase-Dienste benötigt:
+Für die App werden folgende Firebase-Dienste benötigt — alle im kostenlosen Spark Plan:
 
-1. **Firestore Database** — Spot-Daten speichern
-2. **Firebase Authentication** — Admin-Login (Google)
-3. **Firebase Storage** (später) — Fotos
+1. **Firestore Database** ✅ — Spot-Daten speichern
+2. **Firebase Authentication** ✅ — Admin-Login (Google)
+3. ~~Firebase Storage~~ — **nicht benötigt**, Fotos kommen aus GitHub Repo
 
 ### 8.2 Firebase einrichten — Schritt für Schritt
 
@@ -269,18 +280,24 @@ service cloud.firestore {
 
 ```
 windsurf-spot-finder/
-├── index.html          ← Haupt-App (Suche & Ergebnisse)
-├── spot.html           ← Spot-Detailseite
-├── admin.html          ← Admin-Formular (geschützt)
+├── index.html          ← Haupt-App (Suche, Filter, Karte)
+├── spot.html           ← Spot-Detailseite (Windrose, Galerie, Video)
+├── admin.html          ← Admin-Formular (geschützt, Google Login)
+├── import.html         ← Einmalig-Tool: Daten → Firestore (nicht löschen!)
 ├── css/
-│   └── style.css
+│   └── style.css       ← Dunkles Theme, alle Komponenten
 ├── js/
-│   ├── app.js          ← Hauptlogik, Suche, Filter
-│   ├── firebase.js     ← Firebase-Initialisierung & API
-│   ├── geo.js          ← Standort & Distanzberechnung
-│   ├── weather.js      ← Winddaten-Integration (zunächst leer, v3)
-│   └── admin.js        ← Admin-Formular-Logik
-└── README.md
+│   ├── app.js          ← Hauptlogik, Suche, Filter, Karte (Leaflet)
+│   ├── firebase.js     ← Firebase SDK + alle DB/Auth-Funktionen
+│   ├── geo.js          ← GPS + Haversine-Distanzberechnung
+│   ├── weather.js      ← Winddaten-Modul (leer — Vorbereitung v3)
+│   └── admin.js        ← Admin-Formular-Logik inkl. Foto-URLs
+├── img/                ← Spot-Fotos (manuell hochladen)
+│   └── .gitkeep
+├── icon-192.png        ← PWA App-Icon
+├── icon-512.png        ← PWA App-Icon
+├── manifest.json       ← PWA Manifest (noch nicht aktiv)
+└── sw.js               ← Service Worker (noch nicht aktiv)
 ```
 
 ---
@@ -297,11 +314,24 @@ windsurf-spot-finder/
 
 ## 11. Offene Fragen & nächste Schritte
 
-- [ ] Firebase Projekt anlegen (Daniel)
-- [ ] Firebase Config-Block bereitstellen (für Claude in VC)
-- [ ] Erste Spots manuell in Firestore eintragen (Testdaten)
-- [ ] Windrichtungs-Range: UI-Konzept finalisieren (Slider vs. Vorauswahl)
-- [ ] Foto-Upload: In v2 oder erst v3?
+**Erledigt:**
+- [x] Firebase Projekt anlegen
+- [x] Firebase Config eingebunden
+- [x] Spots importiert (61 Spots: Südafrika, Frankreich, Dänemark)
+- [x] Windrichtungs-Range: Buttons + Slider umgesetzt
+- [x] Foto-Lösung: GitHub Repo statt Firebase Storage
+
+**Offen — kleine Features:**
+- [ ] `img/` Ordner im GitHub Repo anlegen + erste Spot-Fotos hochladen
+- [ ] Filterkombinationen speichern (localStorage) — 1–2h Aufwand
+- [ ] Teilen-Funktion: direkter Link zu einem Spot (`spot.html?id=…` bereits funktioniert, nur Button fehlt)
+- [ ] PWA aktivieren: `manifest.json` und `sw.js` einbinden → App auf Homescreen installierbar
+
+**Offen — größere Features (v3):**
+- [ ] Winddaten-Integration via Open-Meteo (kostenlos, kein API-Key)
+  - `weather.js` ist vorbereitet, Datenstruktur ist kompatibel
+  - Zeigt bei jedem Spot: aktueller Wind + ob Spot heute passt
+- [ ] Weitere Länder/Spots eintragen (admin.html)
 
 ---
 
@@ -314,3 +344,40 @@ windsurf-spot-finder/
 4. GitHub Pages aktualisiert sich automatisch in 1–2 Minuten
 
 **Für spätere Entwicklung empfohlen:** Git lokal einrichten und direkt per `git push` deployen — spart den manuellen Upload-Schritt.
+
+---
+
+## 13. Entwicklungsstand — April 2026
+
+### Was läuft produktiv
+
+| Feature | Datei | Status |
+|---------|-------|--------|
+| Spot-Suche + Filter | `index.html` + `js/app.js` | ✅ |
+| GPS + Distanzberechnung | `js/geo.js` | ✅ |
+| Kartenansicht (Leaflet) | `index.html` + `js/app.js` | ✅ |
+| Spot-Detailseite | `spot.html` | ✅ |
+| Windrose (SVG) | `spot.html` | ✅ |
+| Firebase Firestore | `js/firebase.js` | ✅ |
+| Offline-Cache | `js/app.js` (localStorage) | ✅ |
+| Admin-Formular | `admin.html` + `js/admin.js` | ✅ |
+| Google Login (Auth) | `js/firebase.js` | ✅ |
+| Rollen (viewer/editor/admin) | Firestore `users` Collection | ✅ |
+| Foto-URLs | `admin.js` | ✅ |
+| 61 Spots (ZA/FR/DK) | Firestore `spots` Collection | ✅ |
+
+### Technische Entscheidungen die getroffen wurden
+
+- **Kein Firebase Storage** — Fotos via GitHub Repo URLs, kein Billing-Risiko
+- **Kein Build-Tool** — reines HTML/CSS/JS mit ES Modules, läuft direkt auf GitHub Pages
+- **Firebase SDK v10** via CDN — kein npm, kein Webpack
+- **CartoDB Dark Tiles** für Karte — passt zum Dark Theme, komplett kostenlos
+- **localStorage Cache** — App zeigt sofort Daten, auch wenn Firebase kurz langsam ist
+
+### Wo weitermachen
+
+Nächste sinnvolle Schritte in Reihenfolge:
+1. **Fotos** — `img/` Ordner anlegen, erste Fotos für Kapstadt-Spots hochladen
+2. **PWA** — `manifest.json` und `sw.js` aktivieren (2h) → App auf Handy-Homescreen
+3. **Teilen-Button** — auf `spot.html` (1h)
+4. **Winddaten** — `weather.js` befüllen mit Open-Meteo API (4–6h)
