@@ -86,6 +86,14 @@
 
   <!-- Zusatzfilter (eingeklappt) -->
   <div id="filter-panel" class="filter-panel hidden">
+    <div class="filter-row filter-selects">
+      <select id="filter-land" class="filter-select">
+        <option value="">Alle Länder</option>
+      </select>
+      <select id="filter-region" class="filter-select">
+        <option value="">Alle Regionen</option>
+      </select>
+    </div>
     <div class="filter-row">
       <div class="lbl">Disziplin</div>
       <div id="disz-group" class="toggle-group"></div>
@@ -97,6 +105,9 @@
     <div class="filter-row">
       <div class="lbl">Level</div>
       <div id="level-group" class="toggle-group"></div>
+    </div>
+    <div class="filter-row">
+      <button id="filter-reset" class="btn-reset">Filter zurücksetzen</button>
     </div>
   </div>
 
@@ -121,6 +132,7 @@
   <div class="results" id="results-wrap">
     <div class="results-header">
       <div id="result-count" class="results-count"></div>
+      <button id="sort-toggle" class="btn-sort" title="Sortierung ändern">↕ Name</button>
     </div>
     <div id="results-list">
       <div class="spinner"></div>

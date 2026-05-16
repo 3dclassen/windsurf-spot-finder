@@ -2,7 +2,7 @@ import { getSpots }                              from './firebase.js';
 import { getLocation, haversine, formatDistance } from './geo.js';
 import { getWindForecast, getWindAtTimeSync, degToLabel } from './weather.js';
 
-// ── Konstanten ───────────────────────────────────────────────────
+// ── Konstanten ───────────────────────────────────────────────────────────────
 
 const WIND_DIRS = [
   { label: 'N',  deg: 0   }, { label: 'NO', deg: 45  },
@@ -19,64 +19,70 @@ const LEVEL_LABELS = {
   expert: 'Expert', experts_only: 'Experts only',
 };
 const RADIUS_OPTIONS = [
-  { label: '20 km', value: 20 },
-  { label: '50 km', value: 50 },
+  { label: '20 km', value: 20  },
+  { label: '50 km', value: 50  },
   { label: '100 km', value: 100 },
-  { label: 'Alle', value: null },
+  { label: 'Alle',  value: null },
 ];
 
-const CACHE_KEY      = 'spots_v2';
-const FILTER_SAVE_KEY = 'filters_v3';
+const CACHE_KEY       = 'spots_v2';
+const FILTER_SAVE_KEY = 'filters_v4';
 
-// ── State ────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
 
-let allSpots     = [];
-let userLoc      = null;
-let windForecast = null;
-let autoWind     = null;   // { direction, speed, label } — von Open-Meteo
-let manualWindDir = null;  // Zahl wenn manuell überschrieben, sonst null
-let selectedTime = 'now'; // 'now' | '+3h' | 'tomorrow-am' | 'tomorrow-pm'
-let radius       = 100;   // km; null = alle
-let filters      = { disziplinen: new Set(), sport: new Set(), level: new Set(), text: '' };
-let filtersOpen  = false;
-let mapView      = false;
-let leafletMap   = null;
-let mapMarkers   = [];
+let allSpots      = [];
+let userLoc       = null;
+let windForecast  = null;
+let autoWind      = null;
+let manualWindDir = null;
+let selectedTime  = 'now';
+let radius        = null;   // null = alle (kein Pflichtfilter)
+let filters       = { disziplinen: new Set(), sport: new Set(), level: new Set(), text: '', land: '', region: '' };
+let filtersOpen   = false;
+let mapView       = false;
+let sortBy        = null;   // null=auto | 'name' | 'dist'
+let leafletMap    = null;
+let mapMarkers    = [];
+let mapFitted     = false;
 
-// ── DOM refs ─────────────────────────────────────────────────────
+// ── DOM refs ──────────────────────────────────────────────────────────────────
 
-const locBar         = document.getElementById('loc-bar');
-const locText        = document.getElementById('loc-text');
-const resultsList    = document.getElementById('results-list');
-const resultCount    = document.getElementById('result-count');
-const resultsWrap    = document.getElementById('results-wrap');
-const mapContainer   = document.getElementById('map-container');
-const mapToggle      = document.getElementById('map-toggle');
-const adminLink      = document.getElementById('admin-link');
-const searchInput    = document.getElementById('search-input');
-const searchClear    = document.getElementById('search-clear');
-const windLoading    = document.getElementById('wind-loading');
-const windDisplay    = document.getElementById('wind-display');
-const windManualDiv  = document.getElementById('wind-manual');
-const windOverride   = document.getElementById('wind-override');
-const windEditBtn    = document.getElementById('wind-edit-btn');
-const windAutoBtn    = document.getElementById('wind-auto-btn');
-const windLabelText  = document.getElementById('wind-label-text');
-const windSpeedText  = document.getElementById('wind-speed-text');
-const windManualGrp  = document.getElementById('wind-manual-group');
-const windOverLabel  = document.getElementById('wind-override-label');
-const windOverComp   = document.getElementById('wind-override-compass');
-const windCompassEl  = document.getElementById('wind-compass-svg');
-const timeSelector   = document.getElementById('time-selector');
-const radiusGroup    = document.getElementById('radius-group');
-const filterBtn      = document.getElementById('filter-btn');
-const filterCount    = document.getElementById('filter-count');
-const filterPanel    = document.getElementById('filter-panel');
-const diszGroup      = document.getElementById('disz-group');
-const sportGroup     = document.getElementById('sport-group');
-const levelGroup     = document.getElementById('level-group');
+const locBar        = document.getElementById('loc-bar');
+const locText       = document.getElementById('loc-text');
+const resultsList   = document.getElementById('results-list');
+const resultCount   = document.getElementById('result-count');
+const resultsWrap   = document.getElementById('results-wrap');
+const mapContainer  = document.getElementById('map-container');
+const mapToggle     = document.getElementById('map-toggle');
+const adminLink     = document.getElementById('admin-link');
+const searchInput   = document.getElementById('search-input');
+const searchClear   = document.getElementById('search-clear');
+const windLoading   = document.getElementById('wind-loading');
+const windDisplay   = document.getElementById('wind-display');
+const windManualDiv = document.getElementById('wind-manual');
+const windOverride  = document.getElementById('wind-override');
+const windEditBtn   = document.getElementById('wind-edit-btn');
+const windAutoBtn   = document.getElementById('wind-auto-btn');
+const windLabelText = document.getElementById('wind-label-text');
+const windSpeedText = document.getElementById('wind-speed-text');
+const windManualGrp = document.getElementById('wind-manual-group');
+const windOverLabel = document.getElementById('wind-override-label');
+const windOverComp  = document.getElementById('wind-override-compass');
+const windCompassEl = document.getElementById('wind-compass-svg');
+const timeSelector  = document.getElementById('time-selector');
+const radiusGroup   = document.getElementById('radius-group');
+const filterBtn     = document.getElementById('filter-btn');
+const filterCount   = document.getElementById('filter-count');
+const filterPanel   = document.getElementById('filter-panel');
+const diszGroup     = document.getElementById('disz-group');
+const sportGroup    = document.getElementById('sport-group');
+const levelGroup    = document.getElementById('level-group');
+const filterLand    = document.getElementById('filter-land');
+const filterRegion  = document.getElementById('filter-region');
+const filterReset   = document.getElementById('filter-reset');
+const sortToggle    = document.getElementById('sort-toggle');
 
-// ── Init ─────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 
 async function init() {
   loadSavedFilters();
@@ -87,8 +93,9 @@ async function init() {
   wireFilterPanel();
   wireSearch();
   wireMapToggle();
+  wireFilterReset();
+  wireSortToggle();
 
-  // Admin-Link einblenden
   try {
     const { auth, onAuthStateChanged, getUserRole } = await import('./firebase.js');
     onAuthStateChanged(auth, async user => {
@@ -98,33 +105,36 @@ async function init() {
     });
   } catch (_) {}
 
-  // Cache sofort rendern
   const cached = localStorage.getItem(CACHE_KEY);
   if (cached) {
-    try { allSpots = JSON.parse(cached); render(); } catch (_) {}
+    try {
+      allSpots = JSON.parse(cached);
+      buildLandDropdown(allSpots);
+      render();
+    } catch (_) {}
   }
 
-  // Spots von Firebase (parallel zu GPS)
   getSpots().then(spots => {
     allSpots = spots;
     localStorage.setItem(CACHE_KEY, JSON.stringify(spots));
+    buildLandDropdown(spots);
     render();
   }).catch(err => {
     console.error('Firebase:', err);
     if (allSpots.length === 0) setLocState('err', 'Spots nicht erreichbar');
   });
 
-  // GPS (startet danach Winddaten)
   requestGPS();
 }
 
-// ── GPS ──────────────────────────────────────────────────────────
+// ── GPS ───────────────────────────────────────────────────────────────────────
 
 async function requestGPS() {
   setLocState('loading', 'Standort wird ermittelt…');
   try {
     userLoc = await getLocation();
     setLocState('ok', `${userLoc.lat.toFixed(3)}°, ${userLoc.lng.toFixed(3)}°`);
+    fetchLocationName(userLoc.lat, userLoc.lng);
     render();
     loadWindData();
   } catch (_) {
@@ -134,7 +144,26 @@ async function requestGPS() {
   }
 }
 
-// ── Winddaten laden ──────────────────────────────────────────────
+// ── Standortname via Nominatim (Task 6) ──────────────────────────────────────
+
+async function fetchLocationName(lat, lng) {
+  const KEY = 'location_name';
+  const cached = sessionStorage.getItem(KEY);
+  if (cached) { locText.textContent = cached; return; }
+  try {
+    const res  = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+      { headers: { 'User-Agent': 'WindsurfSpotFinder/1.0' } }
+    );
+    const data = await res.json();
+    const place = data.address?.city ?? data.address?.town ?? data.address?.village ?? data.address?.county ?? null;
+    const label = place ? `Wind bei ${place}` : `${lat.toFixed(3)}°, ${lng.toFixed(3)}°`;
+    sessionStorage.setItem(KEY, label);
+    locText.textContent = label;
+  } catch (_) {}
+}
+
+// ── Winddaten laden ───────────────────────────────────────────────────────────
 
 async function loadWindData() {
   if (!userLoc) return;
@@ -175,18 +204,17 @@ function getTargetDate() {
   }
 }
 
-// ── Wind-Anzeige: States ─────────────────────────────────────────
-// 'loading' | 'auto' | 'manual' | 'override'
+// ── Wind-Anzeige States ───────────────────────────────────────────────────────
 
 function showWindState(state) {
   windLoading.classList.toggle('hidden', state !== 'loading');
   windDisplay.classList.toggle('hidden', state !== 'auto');
   windManualDiv.classList.toggle('hidden', state !== 'manual');
   windOverride.classList.toggle('hidden', state !== 'override');
-  timeSelector.classList.toggle('hidden', state !== 'auto'); // Zeitauswahl nur bei Auto
+  timeSelector.classList.toggle('hidden', state !== 'auto');
 }
 
-// ── Manuelle Windrichtungs-Buttons ────────────────────────────────
+// ── Manuelle Windrichtungs-Buttons ────────────────────────────────────────────
 
 function buildManualWindButtons() {
   windManualGrp.innerHTML = WIND_DIRS.map(d =>
@@ -210,17 +238,13 @@ function buildManualWindButtons() {
   windAutoBtn?.addEventListener('click', () => {
     manualWindDir = null;
     windManualGrp.querySelectorAll('.toggle').forEach(b => b.classList.remove('on'));
-    if (windForecast) {
-      updateAutoWind();
-      showWindState('auto');
-    } else {
-      showWindState('manual');
-    }
+    if (windForecast) { updateAutoWind(); showWindState('auto'); }
+    else              { showWindState('manual'); }
     render();
   });
 }
 
-// ── Zeitauswahl ───────────────────────────────────────────────────
+// ── Zeitauswahl ───────────────────────────────────────────────────────────────
 
 function wireTimeSelector() {
   timeSelector.addEventListener('click', e => {
@@ -233,7 +257,7 @@ function wireTimeSelector() {
   });
 }
 
-// ── Radius-Buttons ────────────────────────────────────────────────
+// ── Radius-Buttons ────────────────────────────────────────────────────────────
 
 function buildRadiusButtons() {
   radiusGroup.innerHTML = RADIUS_OPTIONS.map(o =>
@@ -262,7 +286,7 @@ function disableRadius() {
   if (allBtn) { allBtn.classList.add('on'); allBtn.style.opacity = '1'; }
 }
 
-// ── Zusatzfilter (eingeklappt) ────────────────────────────────────
+// ── Filter Panel ──────────────────────────────────────────────────────────────
 
 function wireFilterPanel() {
   filterBtn.addEventListener('click', () => {
@@ -306,17 +330,88 @@ function buildAdditionalFilters() {
   buildGroup(sportGroup, sportOpts, filters.sport,       'sport');
   buildGroup(levelGroup, levelOpts, filters.level,       'level');
 
+  wireLandRegionFilter();
   updateFilterBtnLabel();
 }
 
-function updateFilterBtnLabel() {
-  const n = filters.disziplinen.size + filters.sport.size + filters.level.size + (filters.text ? 1 : 0);
-  filterBtn.textContent = 'Filter';
-  filterCount.textContent = n;
-  filterCount.classList.toggle('hidden', n === 0);
+// Task 3 — Land/Region Dropdowns ──────────────────────────────────────────────
+
+function buildLandDropdown(spots) {
+  if (!filterLand) return;
+  const lands = [...new Set(spots.map(s => s.land).filter(Boolean))].sort();
+  filterLand.innerHTML = `<option value="">Alle Länder</option>` +
+    lands.map(l => `<option value="${escHtml(l)}"${filters.land === l ? ' selected' : ''}>${escHtml(l)}</option>`).join('');
+  if (filters.land) updateRegionDropdown(spots, filters.land);
 }
 
-// ── Suche ────────────────────────────────────────────────────────
+function updateRegionDropdown(spots, land) {
+  if (!filterRegion) return;
+  const regions = land
+    ? [...new Set(spots.filter(s => s.land === land).map(s => s.region).filter(Boolean))].sort()
+    : [];
+  filterRegion.innerHTML = `<option value="">Alle Regionen</option>` +
+    regions.map(r => `<option value="${escHtml(r)}"${filters.region === r ? ' selected' : ''}>${escHtml(r)}</option>`).join('');
+}
+
+function wireLandRegionFilter() {
+  if (!filterLand || !filterRegion) return;
+  filterLand.addEventListener('change', () => {
+    filters.land   = filterLand.value;
+    filters.region = '';
+    filterRegion.value = '';
+    updateRegionDropdown(allSpots, filters.land);
+    saveFilters(); updateFilterBtnLabel(); render();
+  });
+  filterRegion.addEventListener('change', () => {
+    filters.region = filterRegion.value;
+    saveFilters(); updateFilterBtnLabel(); render();
+  });
+}
+
+function wireFilterReset() {
+  if (!filterReset) return;
+  filterReset.addEventListener('click', () => {
+    filters.disziplinen.clear();
+    filters.sport.clear();
+    filters.level.clear();
+    filters.text   = '';
+    filters.land   = '';
+    filters.region = '';
+    diszGroup.querySelectorAll('.toggle').forEach(b => b.classList.remove('on'));
+    sportGroup.querySelectorAll('.toggle').forEach(b => b.classList.remove('on'));
+    levelGroup.querySelectorAll('.toggle').forEach(b => b.classList.remove('on'));
+    if (filterLand)   filterLand.value   = '';
+    if (filterRegion) filterRegion.value = '';
+    searchInput.value = '';
+    searchClear.classList.remove('visible');
+    saveFilters(); updateFilterBtnLabel(); render();
+  });
+}
+
+// ── Sortierung (Task 4) ───────────────────────────────────────────────────────
+
+function wireSortToggle() {
+  if (!sortToggle) return;
+  sortToggle.addEventListener('click', () => {
+    sortBy = effectiveSort() === 'dist' ? 'name' : 'dist';
+    saveFilters();
+    updateSortBtn();
+    render();
+  });
+}
+
+function effectiveSort() {
+  return sortBy ?? (userLoc ? 'dist' : 'name');
+}
+
+function updateSortBtn() {
+  if (!sortToggle) return;
+  const eff = effectiveSort();
+  sortToggle.textContent = eff === 'dist' ? '↕ Distanz' : '↕ Name';
+  sortToggle.title = eff === 'dist' ? 'Klicken: nach Name sortieren' : 'Klicken: nach Distanz sortieren';
+}
+
+// ── Suche ─────────────────────────────────────────────────────────────────────
 
 function wireSearch() {
   let timer;
@@ -339,12 +434,14 @@ function wireSearch() {
   });
 }
 
-// ── Karte ────────────────────────────────────────────────────────
+// ── Karte ─────────────────────────────────────────────────────────────────────
 
 function wireMapToggle() {
   mapToggle.addEventListener('click', () => {
     mapView = !mapView;
+    mapFitted = false;
     mapToggle.classList.toggle('on', mapView);
+    mapToggle.innerHTML = mapView ? '📋' : '🗺️';
     mapToggle.title = mapView ? 'Listenansicht' : 'Kartenansicht';
     resultsWrap.classList.toggle('hidden', mapView);
     mapContainer.classList.toggle('hidden', !mapView);
@@ -361,50 +458,100 @@ function initMap() {
   }).addTo(leafletMap);
 }
 
+// Task 5 — Farbige Karten-Icons ───────────────────────────────────────────────
+
+function diszColorByKey(key) {
+  if (key === 'welle_gross') return '#e74c3c';
+  if (key === 'welle_klein') return '#f39c12';
+  return '#2ecc71';
+}
+
+function diszColor(spot) {
+  const d = spot.disziplinen ?? [];
+  if (d.includes('welle_gross')) return '#e74c3c';
+  if (d.includes('welle_klein')) return '#f39c12';
+  return '#2ecc71';
+}
+
 function updateMap(spots) {
   if (!leafletMap) return;
   mapMarkers.forEach(m => m.remove());
   mapMarkers = [];
 
+  const windDir = getActiveWindDir();
+  const anyOptional = filters.disziplinen.size > 0 || filters.sport.size > 0 ||
+    filters.level.size > 0 || !!filters.text || !!filters.land || !!filters.region ||
+    radius !== null;
+
+  const fittingMarkers = [];
+
   spots.forEach(spot => {
     if (!spot.lat || !spot.lng) return;
+    const dimmed   = anyOptional && !spot._show;
+    const opacity  = dimmed ? 0.2 : 0.85;
+    const color    = diszColor(spot);
     const isMatch  = spot._isMatch;
-    const color    = isMatch ? '#2ecc8f' : '#4f8ef7';
-    const opacity  = isMatch ? 0.9 : 0.45;
-    const distText = spot._dist != null ? `<br><span style="color:#4f8ef7">${formatDistance(spot._dist)}</span>` : '';
+
+    const distText = spot._dist != null
+      ? `<div style="color:#4f8ef7;font-size:.8rem;margin:.15rem 0">${formatDistance(spot._dist)}</div>` : '';
+
+    const matchLine = windDir !== null
+      ? `<div style="color:${isMatch ? '#2ecc71' : '#888'};font-size:.75rem;margin:.2rem 0">${isMatch ? '✓ Wind passt' : '✗ Wind passt nicht'}</div>` : '';
+
+    const diszBadges = (spot.disziplinen ?? []).map(d =>
+      `<span style="background:${diszColorByKey(d)};color:#fff;padding:1px 6px;border-radius:4px;font-size:.72rem;margin-right:2px">${DISZIPLIN_LABELS[d] ?? d}</span>`
+    ).join('');
+
+    const sportBadges = (spot.sport ?? []).map(s =>
+      `<span style="background:#2e3350;color:#a0aec0;padding:1px 6px;border-radius:4px;font-size:.72rem;margin-right:2px">${s === 'windsurf' ? '🏄 Windsurf' : '🪁 Kite'}</span>`
+    ).join('');
+
+    const levelBadge = spot.level
+      ? `<span style="background:#2e3350;color:#a0aec0;padding:1px 6px;border-radius:4px;font-size:.72rem">${LEVEL_LABELS[spot.level] ?? spot.level}</span>` : '';
+
+    const windroseSvg = spot.windrichtungen?.length
+      ? `<div style="margin:.35rem 0">${windroseMini(spot.windrichtungen, 56)}</div>` : '';
 
     const marker = L.circleMarker([spot.lat, spot.lng], {
       radius: 8, fillColor: color, color: '#1a1d27',
       weight: 2, opacity: 1, fillOpacity: opacity,
     }).addTo(leafletMap)
       .bindPopup(`
-        <div style="font-family:system-ui;min-width:140px">
-          <strong style="font-size:.95rem">${escHtml(spot.name)}</strong>
-          <div style="color:#888;font-size:.8rem;margin:.2rem 0">${escHtml(spot.region ?? spot.land ?? '')}</div>
-          ${distText}
+        <div style="font-family:system-ui;min-width:160px;max-width:220px">
+          <strong style="font-size:.93rem">${escHtml(spot.name)}</strong>
+          <div style="color:#888;font-size:.78rem;margin:.2rem 0">${escHtml([spot.region, spot.land].filter(Boolean).join(' · '))}</div>
+          ${distText}${matchLine}
+          <hr style="border:none;border-top:1px solid #2e3350;margin:.35rem 0">
+          ${windroseSvg}
+          ${diszBadges ? `<div style="margin:.25rem 0">${diszBadges}</div>` : ''}
+          ${sportBadges ? `<div style="margin:.25rem 0">${sportBadges}</div>` : ''}
+          ${levelBadge  ? `<div style="margin:.25rem 0">${levelBadge}</div>`  : ''}
           <a href="spot.html?id=${spot.id}"
-             style="display:inline-block;margin-top:.5rem;color:#4f8ef7;font-size:.82rem;font-weight:600">
-            Details →
+             style="display:inline-block;margin-top:.35rem;color:#4f8ef7;font-size:.82rem;font-weight:600">
+            → Details
           </a>
         </div>`, { className: 'map-popup' });
+
     mapMarkers.push(marker);
+    if (spot._show) fittingMarkers.push(marker);
   });
 
-  if (mapMarkers.length > 0) {
-    const group = L.featureGroup(mapMarkers);
-    leafletMap.fitBounds(group.getBounds().pad(0.15));
+  if (!mapFitted && mapMarkers.length > 0) {
+    const toFit = fittingMarkers.length > 0 ? fittingMarkers : mapMarkers;
+    leafletMap.fitBounds(L.featureGroup(toFit).getBounds().pad(0.15));
+    mapFitted = true;
   }
+
   setTimeout(() => leafletMap.invalidateSize(), 50);
 }
 
-// ── Filter-Logik ─────────────────────────────────────────────────
+// ── Filter-Logik ──────────────────────────────────────────────────────────────
 
 function getActiveWindDir() {
   if (manualWindDir !== null) return manualWindDir;
   return autoWind?.direction ?? null;
 }
 
-// C2 — Match-Algorithmus inkl. Wrap-around bei 0°/360°
 function isSpotMatch(spot, windDir) {
   if (windDir === null) return true;
   return spot.windrichtungen?.some(w => {
@@ -428,38 +575,51 @@ function levelMatches(spot) {
 }
 function textMatches(spot) {
   if (!filters.text) return true;
-  return `${spot.name} ${spot.region ?? ''} ${spot.land ?? ''}`.toLowerCase().includes(filters.text);
+  return `${spot.name} ${spot.region ?? ''} ${spot.land ?? ''} ${spot.beschreibung ?? ''}`.toLowerCase().includes(filters.text);
+}
+function landMatches(spot) {
+  if (!filters.land) return true;
+  return spot.land === filters.land;
+}
+function regionMatches(spot) {
+  if (!filters.region) return true;
+  return spot.region === filters.region;
 }
 
-// ── Render ───────────────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────────────────────
 
 function render() {
   const windDir = getActiveWindDir();
   const hasWind = windDir !== null;
 
-  // Metadaten berechnen
   const withMeta = allSpots.map(s => {
     const dist = userLoc ? haversine(userLoc.lat, userLoc.lng, s.lat, s.lng) : null;
     const withinRadius   = radius === null || dist === null || dist <= radius;
-    const passesOptional = diszMatches(s) && sportMatches(s) && levelMatches(s) && textMatches(s);
+    const passesOptional = diszMatches(s) && sportMatches(s) && levelMatches(s) &&
+                           textMatches(s) && landMatches(s) && regionMatches(s);
     return { ...s, _dist: dist, _show: withinRadius && passesOptional, _isMatch: isSpotMatch(s, windDir) };
   });
 
+  if (mapView) {
+    updateMap(withMeta);
+    return;
+  }
+
   const visible = withMeta.filter(s => s._show);
 
-  // Sortierung: passende Spots zuerst, dann nach Distanz
+  const eff = effectiveSort();
   visible.sort((a, b) => {
-    if (a._isMatch !== b._isMatch) return a._isMatch ? -1 : 1;
-    return (a._dist ?? Infinity) - (b._dist ?? Infinity);
+    if (hasWind && a._isMatch !== b._isMatch) return a._isMatch ? -1 : 1;
+    if (eff === 'dist') return (a._dist ?? Infinity) - (b._dist ?? Infinity);
+    return (a.name ?? '').localeCompare(b.name ?? '', 'de');
   });
 
-  const matchCount = visible.filter(s => s._isMatch).length;
+  updateSortBtn();
 
+  const matchCount = hasWind ? visible.filter(s => s._isMatch).length : visible.length;
   resultCount.textContent = hasWind
     ? `${matchCount} passend · ${visible.length - matchCount} weitere`
     : `${visible.length} Spot${visible.length !== 1 ? 's' : ''}`;
-
-  if (mapView) { updateMap(visible); return; }
 
   if (visible.length === 0) {
     resultsList.innerHTML = `
@@ -471,43 +631,63 @@ function render() {
     return;
   }
 
-  resultsList.innerHTML = visible.map(s => spotCard(s, hasWind)).join('');
+  resultsList.innerHTML = visible.map(s => spotRow(s, hasWind)).join('');
 }
 
-function spotCard(spot, showMatchIndicator) {
+// ── Spot Row — kompakte Listenansicht (Task 4) ────────────────────────────────
+
+function spotRow(spot, showMatchIndicator) {
   const distHtml = spot._dist != null
-    ? `<div class="spot-dist">${formatDistance(spot._dist)}</div>`
-    : '';
+    ? `<span class="spot-dist-sm">${formatDistance(spot._dist)}</span>` : '';
+
+  const diszDot = (() => {
+    const d = spot.disziplinen ?? [];
+    if (d.includes('welle_gross')) return `<span class="disz-dot" style="background:#e74c3c" title="Welle groß"></span>`;
+    if (d.includes('welle_klein')) return `<span class="disz-dot" style="background:#f39c12" title="Welle klein"></span>`;
+    if (d.includes('flachwasser')) return `<span class="disz-dot" style="background:#2ecc71" title="Flachwasser"></span>`;
+    return '';
+  })();
 
   const matchDot = showMatchIndicator
-    ? `<div class="match-dot${spot._isMatch ? '' : ' no-match'}"></div>`
-    : '';
+    ? `<span class="match-dot${spot._isMatch ? '' : ' no-match'}"></span>` : '';
 
-  const diszBadges = (spot.disziplinen ?? [])
-    .map(d => `<span class="badge badge-disz">${DISZIPLIN_LABELS[d] ?? d}</span>`).join('');
-  const sportBadges = (spot.sport ?? [])
-    .map(s => `<span class="badge badge-sport">${s}</span>`).join('');
-  const levelBadge = spot.level
-    ? `<span class="badge badge-level ${spot.level}">${LEVEL_LABELS[spot.level] ?? spot.level}</span>`
-    : '';
-
-  const region = [spot.land, spot.region].filter(Boolean).join(' · ');
+  const region    = [spot.land, spot.region].filter(Boolean).join(' · ');
+  const windrose  = spot.windrichtungen?.length ? windroseMini(spot.windrichtungen, 38) : '';
 
   return `
-    <a href="spot.html?id=${spot.id}" class="spot-card${showMatchIndicator && !spot._isMatch ? ' no-match' : ''}">
-      <div class="spot-card-top">
-        <div style="display:flex;align-items:center;gap:.45rem;flex:1;min-width:0">
-          ${matchDot}
-          <div class="spot-name">${escHtml(spot.name)}</div>
-        </div>
+    <a href="spot.html?id=${spot.id}" class="spot-row${showMatchIndicator && !spot._isMatch ? ' no-match' : ''}">
+      <div class="spot-row-left">
+        <div class="spot-row-name">${matchDot}${escHtml(spot.name)}</div>
+        <div class="spot-region-sm">${escHtml(region)}</div>
+      </div>
+      <div class="spot-row-right">
+        ${windrose}
+        ${diszDot}
         ${distHtml}
       </div>
-      <div class="spot-region">${escHtml(region)}</div>
-      <div class="badges">${diszBadges}${sportBadges}${levelBadge}</div>
     </a>`;
 }
 
-// ── Filter-Persistenz (B3) ────────────────────────────────────────
+// ── Mini-Windrose SVG ─────────────────────────────────────────────────────────
+
+function windroseMini(windrichtungen, sz = 38) {
+  const cx = sz / 2, cy = sz / 2, r = sz / 2 - 2;
+  let arcs = '';
+  for (const w of windrichtungen) {
+    const from  = ((w.mitte - w.range - 90) * Math.PI) / 180;
+    const to    = ((w.mitte + w.range - 90) * Math.PI) / 180;
+    const x1 = cx + r * Math.cos(from), y1 = cy + r * Math.sin(from);
+    const x2 = cx + r * Math.cos(to),   y2 = cy + r * Math.sin(to);
+    const large = w.range * 2 > 180 ? 1 : 0;
+    arcs += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="#4f8ef7" fill-opacity="0.75"/>`;
+  }
+  return `<svg viewBox="0 0 ${sz} ${sz}" width="${sz}" height="${sz}" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;display:block">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#2e3350" stroke-width="1"/>
+    ${arcs}
+  </svg>`;
+}
+
+// ── Filter-Persistenz ─────────────────────────────────────────────────────────
 
 function saveFilters() {
   localStorage.setItem(FILTER_SAVE_KEY, JSON.stringify({
@@ -515,6 +695,9 @@ function saveFilters() {
     disziplinen: [...filters.disziplinen],
     sport:       [...filters.sport],
     level:       [...filters.level],
+    land:        filters.land,
+    region:      filters.region,
+    sortBy,
   }));
 }
 
@@ -522,15 +705,26 @@ function loadSavedFilters() {
   try {
     const obj = JSON.parse(localStorage.getItem(FILTER_SAVE_KEY) ?? 'null');
     if (!obj) return;
-    if (obj.radius !== undefined)   radius = obj.radius;
-    if (obj.disziplinen?.length)    filters.disziplinen = new Set(obj.disziplinen);
-    if (obj.sport?.length)          filters.sport       = new Set(obj.sport);
-    if (obj.level?.length)          filters.level       = new Set(obj.level);
+    if (obj.radius !== undefined)  radius = obj.radius;
+    if (obj.disziplinen?.length)   filters.disziplinen = new Set(obj.disziplinen);
+    if (obj.sport?.length)         filters.sport       = new Set(obj.sport);
+    if (obj.level?.length)         filters.level       = new Set(obj.level);
+    if (obj.land)                  filters.land        = obj.land;
+    if (obj.region)                filters.region      = obj.region;
+    if (obj.sortBy)                sortBy              = obj.sortBy;
   } catch (_) {}
 }
 
-// ── Kompass-SVG ───────────────────────────────────────────────────
-// Pfeilspitze zeigt WHERE der Wind herkommt (meteorologische Konvention)
+// ── Filter-Badge ──────────────────────────────────────────────────────────────
+
+function updateFilterBtnLabel() {
+  const n = filters.disziplinen.size + filters.sport.size + filters.level.size +
+    (filters.text ? 1 : 0) + (filters.land ? 1 : 0) + (filters.region ? 1 : 0);
+  filterCount.textContent = n;
+  filterCount.classList.toggle('hidden', n === 0);
+}
+
+// ── Kompass-SVG ───────────────────────────────────────────────────────────────
 
 function compassSvg(dir) {
   return `<svg viewBox="0 0 100 100" width="72" height="72" xmlns="http://www.w3.org/2000/svg">
@@ -547,14 +741,14 @@ function compassSvg(dir) {
   </svg>`;
 }
 
-// ── Location bar ─────────────────────────────────────────────────
+// ── Location bar ──────────────────────────────────────────────────────────────
 
 function setLocState(state, text) {
   locBar.className = 'loc-bar' + (state ? ' ' + state : '');
   locText.textContent = text;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function escHtml(str) {
   return String(str ?? '')
@@ -562,6 +756,6 @@ function escHtml(str) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ── Start ────────────────────────────────────────────────────────
+// ── Start ─────────────────────────────────────────────────────────────────────
 
 init();
