@@ -734,7 +734,7 @@ function compassSvg(dir) {
     <text x="88" y="54"  text-anchor="middle" fill="#7b82a0" font-size="9" font-family="system-ui,sans-serif">O</text>
     <text x="50" y="94"  text-anchor="middle" fill="#7b82a0" font-size="9" font-family="system-ui,sans-serif">S</text>
     <text x="13" y="54"  text-anchor="middle" fill="#7b82a0" font-size="9" font-family="system-ui,sans-serif">W</text>
-    <g transform="rotate(${dir} 50 50)">
+    <g transform="rotate(${dir + 180} 50 50)">
       <line x1="50" y1="20" x2="50" y2="62" stroke="#4f8ef7" stroke-width="3.5" stroke-linecap="round"/>
       <polygon points="50,14 43,28 57,28" fill="#4f8ef7"/>
     </g>
